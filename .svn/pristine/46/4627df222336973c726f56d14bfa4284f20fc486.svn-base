@@ -1,0 +1,421 @@
+<template>
+  <div class="content">
+    <v-menu :menuData="menuData"></v-menu>
+    <!-- search -->
+    <el-row type="flex" class="row-bg">
+      <el-button class="addBtn" type="primary" @click="addChannel">添加用户</el-button>
+      <el-select v-model="account" clearable filterable placeholder="请选择用户名称">
+        <el-option label="全部(用户名)" value=''></el-option>
+        <el-option
+          v-for="item in userList"
+          :label="item.account"
+          :value="item.account">
+        </el-option>
+      </el-select>
+      <el-button type="primary" @click="search" icon="el-icon-search">搜索</el-button>
+    </el-row>
+    <!-- table -->
+    <v-table
+      :tableHead="tableHead"
+      :tableData="tableData">
+      <!-- 操作 -->
+      <el-table-column slot="status" label="状态" width="160">
+        <template v-slot="scope">
+          <span>{{scope.row.status_text}}</span>
+          <span v-if="scope.row.status == 'freezed'">
+            <span>
+            <el-tooltip
+              :content="scope.row.freezemsg" placement="top">
+              <i class="el-icon-warning"></i>
+            </el-tooltip>
+            </span>
+          </span>
+        </template>
+      </el-table-column>
+      <el-table-column slot="operate" label="操作" width="160">
+        <template v-slot="scope">
+          <el-button
+            size="mini" type="default"
+            @click="showDialog(scope.row,'showEditInfo')">编辑
+          </el-button>
+          <el-button :disabled="scope.row.disabled" v-if="scope.row.status == 'inuse'"
+            size="mini" type="default" 
+            @click="showDialog(scope.row,'freezeAccount')">冻结
+          </el-button>
+          <el-button v-if="scope.row.status == 'freezed'"
+            size="mini" type="default" 
+            @click="review(scope.row)">解冻
+          </el-button>
+          <el-button
+            class="changePass"
+            size="mini" type="default"
+            @click="showDialog(scope.row,'showEditPassInfo')">修改密码
+          </el-button>
+        </template>
+      </el-table-column>
+    </v-table>
+    <!-- page -->
+    <v-page :pageInfo="pageInfo" @changePage="changePage"></v-page>
+    <!-- 添加用户-->
+    <el-dialog :title="userTitle" :visible.sync="showAddInfo" append-to-body
+      @close="dalogClose('Info')">
+      <el-form :model="Info" label-position="left" :rules="rules" ref="Info">
+        <el-form-item label="用户姓名" :label-width="formLabelWidth" prop="account">
+          <el-input v-model="Info.account" clearable></el-input>
+        </el-form-item>
+        <el-form-item label="用户角色" :label-width="formLabelWidth" prop="role_id">
+          <el-select v-model="Info.role_id" clearable placeholder="请选择用户角色">
+            <el-option
+              v-for="item in roleList"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id">
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="用户密码" :label-width="formLabelWidth" prop="pwd">
+          <el-input v-model="Info.pwd" clearable show-password></el-input>
+        </el-form-item>
+        <el-form-item label="确认密码" :label-width="formLabelWidth" prop="confirmPwd">
+          <el-input v-model="Info.confirmPwd" clearable show-password ></el-input>
+        </el-form-item>
+      </el-form>
+      <div slot="footer">
+        <el-button type="primary" @click="saveEditInfo('Info')">保 存</el-button>
+        <el-button @click="closeDalog('showAddInfo')">取 消</el-button>
+      </div>
+    </el-dialog>
+    <!-- 编辑用户信息 -->
+    <el-dialog title="编辑用户信息" :visible.sync="showEditInfo" append-to-body
+      @close="dalogClose('editInfo')">
+      <el-form :model="editInfo" label-position="left" :rules="rules" ref="editInfo">
+        <el-form-item label="用户姓名" :label-width="formLabelWidth" prop="account">
+          <el-input v-model="editInfo.account" clearable></el-input>
+        </el-form-item>
+        <el-form-item label="用户角色" :label-width="formLabelWidth" prop="role_id">
+          <el-select v-model="editInfo.role_id" clearable placeholder="请选择用户角色">
+            <el-option
+              v-for="item in roleList"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id">
+            </el-option>
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <div slot="footer">
+        <el-button type="primary" @click="saveEditInfo('editInfo')">保 存</el-button>
+        <el-button @click="closeDalog('showEditInfo')">取 消</el-button>
+      </div>
+    </el-dialog>
+    <!-- 修改密码 -->
+    <el-dialog title="修改密码" :visible.sync="showEditPassInfo" append-to-body
+      @close="dalogClose('changePass')">
+      <el-form :model="changePass" label-position="left" :rules="changePassRules" ref="changePass">
+        <el-form-item label="新密码" :label-width="formLabelWidth" prop="pwd">
+          <el-input v-model="changePass.pwd" clearable show-password></el-input>
+        </el-form-item>
+        <el-form-item label="确认密码" :label-width="formLabelWidth" prop="confirmPwd">
+          <el-input v-model="changePass.confirmPwd" clearable show-password ></el-input>
+        </el-form-item>
+      </el-form>
+      <div slot="footer">
+        <el-button type="primary" @click="saveEditInfo('changePass', 'editPassInfo')">保 存</el-button>
+        <el-button @click="closeDalog('showEditPassInfo')">取 消</el-button>
+      </div>
+    </el-dialog>
+    <!-- 冻结账户-->
+    <el-dialog title="冻结账户" :visible.sync="freezeAccount" append-to-body label-position="top"
+      @close="dalogClose('freezeAccountInfo')">
+      <p>确认要冻结 【{{nowUserName}}】 吗 ？</p>
+      <el-form :model="freezeAccountInfo" label-position="left" :rules="rules" ref="freezeAccountInfo">
+        <el-form-item label="冻结原因" prop="freezemsg">
+          <el-input v-model="freezeAccountInfo.freezemsg" type="textarea" :autosize="{ minRows: 4, maxRows: 8}" placeholder="请输入冻结原因" maxlength="100" show-word-limit></el-input>
+        </el-form-item>
+      </el-form>
+      <div slot="footer">
+        <el-button type="primary" @click="saveEditInfo('freezeAccountInfo','freezeAccount')">确 认</el-button>
+        <el-button @click="closeDalog('freezeAccount')">取 消</el-button>
+      </div>
+    </el-dialog>
+  </div>
+</template>
+<script>
+import vTable from "@/components/Table.vue";
+import vPage from "../../components/Page.vue";
+import vMenu from "../../components/menubread.vue";
+import {getUserList, setUser, setPwd, getRoleList,setFreezeUser,setUnFreezeUser} from "../../request/api.js";
+export default {
+  components:{
+    vTable, vMenu, vPage
+  },
+  data () {
+    let validatePass = (rule, value, callback) => {
+      if (value === '' || value === undefined) {
+        callback(new Error('请输入密码'))
+      } else {
+        if (this.Info.confirmPwd !== '' && this.Info.confirmPwd !== undefined) {
+          this.$refs.Info.validateField('confirmPwd')
+        }
+        callback()
+      }
+    }
+    let validatePass2 = (rule, value, callback) => {
+      if (value === '' || value === undefined) {
+        callback(new Error('请再次输入密码'))
+      } else if (value !== this.Info.pwd) {
+        callback(new Error('两次输入密码不一致!'))
+      } else {
+        callback()
+      }
+    }
+    let validateChangePass = (rule, value, callback) => {
+      if (value === '' || value === undefined) {
+        callback(new Error('请输入密码'))
+      } else {
+        if (this.changePass.confirmPwd !== '' && this.changePass.confirmPwd !== undefined) {
+          this.$refs.changePass.validateField('confirmPwd')
+        }
+        callback()
+      }
+    }
+    let validateChangePass2 = (rule, value, callback) => {
+      if (value === '' || value === undefined) {
+        callback(new Error('请再次输入密码'))
+      } else if (value !== this.changePass.pwd) {
+        callback(new Error('两次输入密码不一致!'))
+      } else {
+        callback()
+      }
+    }
+    return {
+      // base
+      menuData:[{id:1,name:'用户管理',path:''},{id:2,name:'用户列表',path:''}],
+      pageInfo:{page:1,limit:30,count:0},
+      Info: {id: '',confirmPwd:''}, // 创建新账号
+      changePass: {id: '',confirmPwd:''}, // 修改密码
+      freezeAccountInfo: {id: ''}, // 冻结账号
+      editInfo: {}, // 编辑信息
+      tableHead:[
+        {id:1,prop:"id",label:"ID",width:"70"},
+        {id:2,prop:"account",label:"用户名",width:"auto"},
+        {id:3,prop:"role",label:"角色",width:"auto"},
+        { slot: "status",prop:"status_text",label:"状态",width:"auto",type:'tooltip',name:'status',status:'freezed'},
+        {id:5,prop:"createtime",label:"创建时间",width:"auto"},
+        {id:6,prop:"updatetime",label:"更新时间",width:"auto"},
+        { slot: "operate",showDialog:'showEditInfo', showDialog:'freezeAccount', showDialog:'showEditPassInfo'}
+      ],
+      // 添加用户
+      roleList: [],  // 角色列表
+      tableData: [],
+      userList: [],  // 用户列表
+      account: '',
+      nowUserName: '',
+      userTitle: '', // 添加 / 编辑用户
+      showAddInfo: false, // 添加用户
+      showEditPassInfo: false, // 编辑密码
+      showEditInfo: false, //编辑用户信息
+      freezeAccount: false, // 冻结账号
+      formLabelWidth: '100px',
+      nowUserId: this.$store.state.userid,
+      changePassRules: {
+        pwd: [{ required: true, validator: validateChangePass, trigger: 'blur' }],
+        confirmPwd: [{ required: true, validator: validateChangePass2, trigger: 'blur' }],
+      },
+      rules: {
+        account: [{ required: true, message: '请输入用户姓名', trigger: 'blur' }],
+        role_id: [{ required: true, message: '请选择用户角色', trigger: 'change' }],
+        pwd: [{ required: true, validator: validatePass, trigger: 'blur' }],
+        confirmPwd: [{ required: true, validator: validatePass2, trigger: 'blur' }],
+        freezemsg: [{ required: true, message: '请输入冻结原因', trigger: 'blur' }]
+      }
+    }
+  },
+  methods:{
+    getDataList:function(){
+      let search = '?paging=1&page='+this.pageInfo.page+"&pagesize="+this.pageInfo.limit;
+      // 用户名称
+      if(this.account || this.account === 0) {
+        search += '&account='+this.account;
+      }
+      getUserList(search).then(res=>{
+        if(res.code == 0){
+          console.log("res.data:", res.data);
+          this.tableData = res.data.data;  // table 表格数据
+          this.pageInfo.count = res.data.total; // 数据条数
+          this.tableData.forEach(item => {
+            if (item.status == 'freezed') {
+              item.status_text = '冻结'
+            } else {
+              item.status_text = '正常'
+            }
+            if (item.id == this.nowUserId) {
+              item.disabled = 'disabled'
+            }
+          })
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    // 获取用户列表
+    getUserList() {
+      let search = '?nopaging'  // 是否有分页： 无
+      getUserList(search).then(res=>{
+        if(res.code == 0){
+          this.userList  = res.data;  // 下拉搜索框 用户列表
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    // 获取角色列表
+    getRoleList() {
+      getRoleList().then(res=>{
+        if(res.code == 0){
+          this.roleList = res.data;
+          console.log("res.data:", res.data);
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    // 保存修改信息
+    saveEditInfo(formName, type) {
+      console.log("保存信息", this.Info)
+      this.$refs[formName].validate((valid) => {
+        if (valid) {
+          if (type == 'freezeAccount') { // 冻结账号
+            setFreezeUser(this.freezeAccountInfo).then(res=>{
+              if(res.code == 0){
+                this.freezeAccount = false;
+                this.freezeAccountInfo.freezemsg = ''
+                this.$showMessage('success', '冻结账号成功')
+                this.getDataList();
+              }
+            }).catch(err => {
+              this.$showMessage('error', err.message);
+            });
+          } else if (type == 'editPassInfo') { // 修改密码
+            // 修改密码
+            setPwd(this.changePass).then(res=>{
+              if(res.code == 0){
+                // 添加 / 修改用户信息成功
+                this.showEditPassInfo = false;
+                this.$showMessage('success', '修改密码成功');
+              }
+            }).catch(err => {
+              this.$showMessage('error', err.message);
+            });
+          } else { // 创建 新用户 || 编辑用户
+            let data = {}
+            if (this.Info.pwd) {
+              data = this.Info
+            } else {
+              data = this.editInfo
+            }
+            console.log("data:", data);
+            setUser(data).then(res=>{
+              if(res.code == 0){
+                // 添加
+                this.showAddInfo = false;
+                this.showEditInfo = false;
+                this.$showMessage('success', `${this.userTitle}成功`)
+                this.$store.commit('setUpdateMenu',new Date().getTime());
+                this.getDataList();
+                this.getUserList();
+              }
+            }).catch(err => {
+              this.$showMessage('error', err.message);
+            });
+          }
+        }
+      })
+    },
+    // 添加用户
+    addChannel() {
+      this.userTitle = '添加用户';
+      this.Info = {};
+      this.showAddInfo = true;
+    },
+    // 分页
+    changePage:function(pageInfo){
+      this.pageInfo = pageInfo;
+      this.getDataList();
+    },
+    // 搜索
+    search:function(){
+      this.pageInfo.page = 1;
+      this.getDataList();
+    },
+    // 关闭弹框
+    closeDalog(showInfo) {
+      this[showInfo] = false
+    },
+    // 显示编辑信息弹框
+    showDialog(info, type) {
+      this.userTitle = '编辑用户';
+      console.log("info:", info);
+      this[type] = true;
+      if (type == 'showEditInfo') { // 编辑
+        this.editInfo = {
+          id: info.id,
+          account: info.account, // 用户名
+          role_id: parseInt(info.role_id)
+        }
+      } else if (type == 'freezeAccount') { // 冻结
+        this.nowUserName = info.account
+        this.freezeAccountInfo = {
+          id: info.id,
+          freezemsg: ''
+        }
+      } else { // 修改密码
+        this.changePass = {
+          id: info.id,
+          pwd: '',
+          confirmPwd:''
+        }
+      }
+    },
+    // 清空弹框数据
+    dalogClose:function(formName){
+      this.$refs[formName].resetFields();
+    },
+    // 解冻
+    review(info){
+      this.$confirm('确定要解除冻结吗？','提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.Info = {
+          id: info.id
+        }
+        setUnFreezeUser(this.Info).then(res=>{
+          if(res.code == 0){
+            this.$showMessage('success', '解除冻结账号成功')
+            this.getDataList();
+          }
+        }).catch(err => {
+          this.$showMessage('error', err.message)
+        });
+      }).catch(() => {
+        this.$showMessage('info', '已取消解除冻结。')
+      });
+    }
+  },
+  mounted(){
+    this.getDataList();
+    this.getRoleList();
+    this.getUserList();
+  }
+}
+</script>
+
+<style scoped>
+.addBtn{margin-right:16px;}
+.el-select{margin-right:8px}
+.el-range-editor.el-input__inner{margin-right:8px}
+.row-bg .el-input{margin-right: 16px;width: 200px;}
+.changePass{margin-top: 6px;margin-left: 0px}
+</style>

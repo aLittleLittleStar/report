@@ -1,0 +1,11 @@
+import fetch from './fetch'
+// 登录相关
+export const login = (userInfo) => fetch('/adv/login', userInfo, 'POST')
+export const logout = () => fetch('/adv/loginOut')
+export const getVerify = () => fetch('/adv/verify')
+export const updatePwd = (userInfo) => fetch('/adv/upPwd', userInfo, 'POST')
+// 文件上传
+export const upLoadFile = (data, header) => fetch('/adv/uploadFile', data, 'POST', {'Content-Type': 'multipart/form-data'})
+
+// 订单列表
+export const getOrderList = (data) => fetch('/adv/order'+data)

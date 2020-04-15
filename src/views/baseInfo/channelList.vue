@@ -1,0 +1,184 @@
+<template>
+  <div class="content">
+    <v-menu :menuData="menuData"></v-menu>
+    <!-- search -->
+    <el-row  type="flex">
+      <el-button class="addBtn" type="primary" @click="addChannel">添加渠道</el-button>
+      <el-select v-model="channel_id" clearable filterable placeholder="请选择渠道名称">
+        <el-option label="全部(渠道名称)" value=''></el-option>
+        <el-option
+          v-for="item in channelName"
+          :key="item.id"
+          :label="item.name"
+          :value="item.id">
+        </el-option>
+      </el-select>
+      <el-button type="primary" @click="search" icon="el-icon-search">搜索</el-button>
+    </el-row>
+    <!-- table -->
+    <v-table
+      :tableHead="tableHead"
+      :tableData="tableData">
+      <!-- 操作 -->
+      <el-table-column slot="operate" label="操作" width="120">
+        <template v-slot="scope">
+          <el-button
+            size="mini" type="default"
+            @click="showDialog(scope.row,'showEditInfo')">修改
+          </el-button>
+        </template>
+      </el-table-column>
+    </v-table>
+    <!-- page -->
+    <v-page :pageInfo="pageInfo" @changePage="changePage"></v-page>
+
+    <el-dialog :title="channelTitle" :visible.sync="showEditInfo" append-to-body
+      @close="dalogClose('Info')">
+      <el-form :model="Info" label-position="left" :rules="rules" ref="Info">
+        <el-form-item label="渠道公司名称" :label-width="formLabelWidth" prop="name">
+          <el-input v-model.trim="Info.name" clearable></el-input>
+        </el-form-item>
+        <el-form-item label="渠道简称" :label-width="formLabelWidth" prop="shortname">
+          <el-input v-model.trim="Info.shortname" clearable></el-input>
+        </el-form-item>
+      </el-form>
+      <div slot="footer">
+        <el-button type="primary" @click="saveEditInfo('Info')">保 存</el-button>
+        <el-button @click="closeAddDalog">取 消</el-button>
+      </div>
+    </el-dialog>
+  </div>
+</template>
+<script>
+import vTable from "@/components/Table.vue";
+import vPage from "../../components/Page.vue";
+import vMenu from "../../components/menubread.vue";
+import {setChannel, getChannelList} from "../../request/api.js";
+export default {
+  components:{
+    vTable, vMenu, vPage
+  },
+  data () {
+    return {
+      // base
+      menuData:[{id:1,name:'基础数据管理',path:''},{id:2,name:'渠道管理',path:''}],
+      pageInfo:{page:1,limit:30,count:0},
+      Info: {id: '',shortname:'',name:''},
+      tableHead:[
+        {id:1,prop:"id",label:"ID",width:"70"},
+        {id:2,prop:"name",label:"渠道公司名",width:"auto"},
+        {id:3,prop:"shortname",label:"渠道简称",width:"auto"},
+        {id:4,prop:"createtime",label:"创建时间",width:"auto"},
+        {id:5,prop:"updatetime",label:"更新时间",width:"auto"},
+        { slot: "operate",showDialog:'showEditInfo'},
+      ], 
+      tableData: [],
+      channelName: [],
+      channel_id: '',
+      channelTitle: '', // 添加 / 编辑渠道信息
+      showEditInfo: false,
+      formLabelWidth: '120px',
+      rules: {
+        name: [{ required: true, message: '请输入渠道公司名称', trigger: 'blur' }],
+        shortname: [{ required: true, message: '请输入渠道简称', trigger: 'blur' }]
+      }
+    }
+  },
+  methods:{
+    getDataList:function(){
+      var search = '?paging=1&page='+this.pageInfo.page+"&pagesize="+this.pageInfo.limit;
+      // 渠道名称
+      if(this.channel_id) {
+        search += '&id='+this.channel_id;
+      }
+      getChannelList(search).then(res=>{
+        if(res.code == 0){
+          console.log("res.data:", res.data.data)
+          this.tableData = res.data.data;
+          this.pageInfo.count = res.data.total;
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    getChannelList() {
+      getChannelList('').then(res=>{
+        if(res.code == 0){
+          this.channelName = res.data;
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    // 保存修改信息
+    saveEditInfo(formName) {
+      let data = {}
+      data.name = this.Info.name
+      data.shortname = this.Info.shortname
+      data.id = this.Info.id
+      if (!this.Info.id) {
+        delete data.id
+      }
+      console.log("this.info:", this.Info);
+      this.$refs[formName].validate((valid) => {
+        if (valid) {
+          setChannel(data).then(res=>{
+            if(res.code == 0){
+              // 添加 / 修改渠道信息
+              this.showEditInfo = false;
+              this.$showMessage('success', `${this.channelTitle}成功`)
+              this.getDataList()
+              this.getChannelList();
+            }
+          }).catch(err => {
+            this.$showMessage('error', err.message)
+          });
+        }
+      })
+    },
+    // 添加渠道信息
+    addChannel() {
+      this.channelTitle = '添加渠道信息';
+      this.showEditInfo = true;
+      this.Info = {}
+    },
+    // 分页
+    changePage:function(pageInfo){
+      this.pageInfo = pageInfo;
+      this.getDataList();
+    },
+    // 搜索
+    search:function(){
+      this.pageInfo.page = 1;
+      this.getDataList();
+    },
+    // 关闭弹框
+    closeAddDalog() {
+      this.showEditInfo = false;
+    },
+    // 显示编辑信息弹框
+    showDialog(info, type) {
+      this.channelTitle = '编辑渠道信息';
+      this[type] = true;
+      console.log("info:", info);
+      this.Info = JSON.parse(JSON.stringify(info))
+      console.log("this.info:", this.Info);
+    },
+    // 清空弹框数据
+    dalogClose:function(formName){
+      this.$refs[formName].resetFields();
+      this.showEditInfo = false;
+    }
+  },
+  mounted(){
+    this.getDataList();
+    this.getChannelList();
+  }
+}
+</script>
+
+<style scoped>
+.addBtn{margin-right:16px;}
+.el-select{margin-right:8px}
+.el-range-editor.el-input__inner{margin-right:8px}
+</style>

@@ -1,0 +1,206 @@
+<template>
+  <div class="content">
+    <v-menu :menuData="menuData"></v-menu>
+    <el-card>
+      <div slot="header" class="clearfix">
+        <span>角色管理</span>
+      </div>
+      <el-form
+        status-icon
+        :model="Info"
+        :rules="rules"
+        ref="Info"
+        label-width="140px">
+        <el-form-item label="角色列表" prop="name">
+          <el-select v-model="Info.id" placeholder="请选择管理员角色"
+            @change="changeRole">
+            <el-option label="新建角色" value="new"></el-option>
+            <el-option
+              v-for="item in roleList"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id">
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="角色名称" prop="role">
+          <el-input v-model="Info.name" clearable class="inline-input" :disabled="editRoleStatus"></el-input>
+        </el-form-item>
+        <el-form-item label="权限列表">
+          <el-checkbox v-model="checked" @change="changeCheck">全选 / 取消全选</el-checkbox>
+          <el-tree
+            :data="data"
+            show-checkbox
+            node-key="id"
+            :default-checked-keys="Info.privileges"
+            ref="tree"
+            @check-change="changeNode"
+            highlight-current>
+          </el-tree>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="setRole('Info')">保 存</el-button>
+          <el-button @click="reset_add('Info')">重 置</el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
+  </div>
+</template>
+
+<script>
+import vMenu from "../../components/menubread.vue"
+import {getRoleList,getAuthorList,setRole} from "../../request/api.js"
+export default {
+  name: 'AccountAdd',
+  data () {
+    return {
+      editRoleStatus:false,
+      menuData:[{ id: 1, name: '用户管理', path: ''},{ id: 2, name: '角色管理', path:''}],
+      checked:false,
+      Info: {
+        id:'new',
+        name: '',
+        privileges:[]
+      },
+      roleList: [],
+      listAll:[],
+      data: [],
+      rules: {
+        name: [{ required: true, message: '角色名称', trigger: 'blur' }],
+        privileges: [{ required: true, message: '请选择角色权限', trigger: 'blur' }]
+      }
+    }
+  },
+  created () {
+    this.getRoleList()
+    this.getAuthorList()
+  },
+  methods: {
+    // 获取角色列表
+    getRoleList(){
+     getRoleList().then(res=>{
+        if(res.code == 0){
+          this.roleList = res.data;
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    // 获取权限列表
+    getAuthorList(){
+      getAuthorList().then(res=>{
+        if(res.code == 0){
+          res.data.forEach(item=>{
+            item['label'] = item.title;
+            if(item.subs){
+              item.subs.forEach(sitem=>{
+                sitem['label'] = sitem.title;
+              })
+            }
+            item['children'] = item.subs;
+          })
+          this.data = res.data;
+          let listAll = [];
+          this.data.forEach(item=>{
+            listAll.push(item.id)
+            item.children&&item.children.forEach(sitem=>{
+              listAll.push(sitem.id)
+            })
+          })
+          this.listAll = listAll;
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    // 角色列表选择
+    changeRole(value){
+      if(value !== 'new'){  //编辑角色
+        this.roleList.forEach(item=>{
+          if(item.id == value){
+            this.Info['id'] = item.id;
+            this.Info.name = item.name
+            this.$refs.tree.setCheckedKeys([]);
+            this.Info.privileges = item.privileges
+            return;
+          }
+        })
+        this.editRoleStatus = true;
+      }else{ //添加
+        this.editRoleStatus = false
+        this.Info.name = ''
+        this.$refs.tree.setCheckedKeys([]);
+        this.Info.privileges = []
+      }
+    },
+    // 全选/取消权限
+    changeCheck(value){
+      if(value){
+        this.$refs.tree.setCheckedKeys(this.listAll);
+        this.Info.privileges = this.listAll;
+      }else{
+        this.$refs.tree.setCheckedKeys([]);
+        this.Info.privileges = [];
+      }
+    },
+    // 权限树更改状态--全选/取消全选
+    changeNode() {
+      let nodes = this.$refs.tree.getCheckedKeys().join();
+      let allNodes = this.listAll.join();
+      if(nodes == allNodes){
+        this.checked = true;
+      }
+      if(!nodes){
+        this.checked = false;
+      }
+    },
+    getCheckedKeys() {
+      this.Info.privileges  = this.$refs.tree.getCheckedKeys()
+      console.log(this.$refs.tree.getCheckedKeys());
+    },
+    // 添加编辑角色   编辑角色：重新获取菜单。
+    setRole(name) {
+      this.getCheckedKeys();
+      this.$refs[name].validate((valid)=>{
+        if (valid) {
+           let message = "";
+          if(this.Info.id !=='new'){//编辑
+            message = '修改成功';
+          }else{  //添加
+            message = '添加成功';
+          }
+          setRole(this.Info).then(res=>{
+            if(res.code == 0){
+              if(this.Info.id ==='new'){//添加
+                this.$refs.tree.setCheckedKeys([]);
+                this.Info.name = ''
+                this.Info.privileges = []
+              }
+              this.$showMessage('success',message)
+              this.getRoleList();
+              // 修改权限---更新菜单--Left.vue
+              this.$store.commit('setUpdateMenu',new Date().getTime());
+            }
+          }).catch(err => {
+            this.$showMessage('error', err.message)
+          });
+        }
+      })
+    },
+    reset_add(formName) {
+      this.editRoleStatus = false
+      this.Info.name = ''
+      this.Info.id= 'new';
+      this.$refs.tree.setCheckedKeys([]);
+      this.Info.privileges = []
+      this.$refs[formName].resetFields();
+    },
+  },
+  components: {
+    vMenu
+  }
+}
+</script>
+
+<style lang="stylus" scoped>
+</style>

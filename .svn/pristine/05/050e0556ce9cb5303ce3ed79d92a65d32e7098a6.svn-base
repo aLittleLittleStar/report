@@ -1,0 +1,192 @@
+<template>
+  <div class="content">
+    <v-menu :menuData="menuData"></v-menu>
+    <!-- search -->
+    <el-row type="flex" class="row-bg">
+      <el-button class="addBtn" type="primary" @click="addChannel">添加客户</el-button>
+      <el-select v-model="customer_id" clearable filterable placeholder="请选择客户名称">
+        <el-option label="全部(客户名称)" value=''></el-option>
+        <el-option
+          v-for="item in customerName"
+          :key="item.id"
+          :label="item.name"
+          :value="item.id">
+        </el-option>
+      </el-select>
+      <el-button type="primary" @click="search" icon="el-icon-search">搜索</el-button>
+    </el-row>
+    <!-- table -->
+    <v-table
+      :tableHead="tableHead"
+      :tableData="tableData">
+      <el-table-column slot="operate" label="操作" width="120">
+        <template v-slot="scope">
+          <el-button
+            size="mini" type="default"
+            @click="showDialog(scope.row,'showEditInfo')">修改
+          </el-button>
+          <router-link v-if="scope.row.id" :to="'/numberList?customer_id='+scope.row.id" >
+            <el-button size="mini">查看包号</el-button>
+          </router-link>
+        </template>
+      </el-table-column>
+    </v-table>
+    <!-- page -->
+    <v-page :pageInfo="pageInfo" @changePage="changePage"></v-page>
+
+    <el-dialog :title="customerTitle" :visible.sync="showEditInfo" append-to-body
+      @close="dalogClose('Info')">
+      <el-form :model="Info" label-position="left" :rules="rules" ref="Info">
+        <el-form-item label="客户名称" :label-width="formLabelWidth" prop="name">
+          <el-input v-model="Info.name" clearable></el-input>
+        </el-form-item>
+
+        <el-form-item label="客户类型" :label-width="formLabelWidth" prop="type">
+          <el-radio v-model="Info.type" label="agency">代理</el-radio>
+          <el-radio v-model="Info.type" label="normal">直客</el-radio>
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button type="primary" @click="saveEditInfo('Info')">保 存</el-button>
+        <el-button @click="closeAddDalog">取 消</el-button>
+      </div>
+    </el-dialog>
+  </div>
+</template>
+<script>
+import vTable from "@/components/Table.vue";
+import vPage from "../../components/Page.vue";
+import vMenu from "../../components/menubread.vue";
+import {getCustomerList, setCustomer} from "../../request/api.js";
+export default {
+  components:{
+    vTable, vMenu, vPage
+  },
+  data () {
+    return {
+      // base
+      menuData:[{id:1,name:'基础数据管理',path:''},{id:2,name:'客户管理',path:''}],
+      pageInfo:{page:1,limit:30,count:0},
+      Info: {id: '',name:'',type:''},
+      tableHead:[
+        {id:1,prop:"id",label:"客户ID",width:"70"},
+        {id:2,prop:"name",label:"客户公司名",width:"auto"},
+        {id:3,prop:"type_text",label:"客户类型",width:"auto"},
+        {id:4,prop:"createtime",label:"创建时间",width:"auto"},
+        {id:5,prop:"updatetime",label:"更新时间",width:"auto"},
+        { slot: "operate",showDialog:'showEditInfo'},
+      ],
+      tableData: [],
+      customerName: [],
+      customer_id: '',
+      customerTitle: '', // 添加 / 编辑客户
+      showEditInfo: false,
+      formLabelWidth: '120px',
+      rules: {
+        name: [{ required: true, message: '请输入客户名称', trigger: 'blur' }],
+        type: [{ required: true, message: '请选择客户类型', trigger: 'blur' }]
+      }
+    }
+  },
+  methods:{
+    getDataList:function(){
+      var search = '?paging=1&page='+this.pageInfo.page+"&pagesize="+this.pageInfo.limit;
+      // 渠道名称
+      if(this.customer_id) {
+        search += '&id='+this.customer_id;
+      }
+      getCustomerList(search).then(res=>{
+        if(res.code == 0){
+          this.tableData = res.data.data;
+          this.tableData.forEach(item => {
+            if (item.type == 'agency') {
+              item.type_text = '代理'
+            } else {
+              item.type_text = '直客'
+            }
+          })
+          this.pageInfo.count = res.data.total;
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    getCustomerList() {
+      getCustomerList('').then(res=>{
+        if(res.code == 0){
+          this.customerName = res.data;
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    // 保存修改信息
+    saveEditInfo(formName) {
+      let data = {};
+      data.name = this.Info.name;
+      data.type = this.Info.type;
+      data.id = this.Info.id;
+      if (!this.Info.id) {
+        delete data.id
+      }
+      this.$refs[formName].validate((valid) => {
+        if (valid) {
+          setCustomer(data).then(res=>{
+            if(res.code == 0){
+              // 添加 / 编辑客户成功
+              this.showEditInfo = false;
+              this.$showMessage('success', `${this.customerTitle}成功`);
+              this.getDataList();
+              this.getCustomerList();
+            }
+          }).catch(err => {
+            this.$showMessage('error', err.message);
+          });
+        }
+      })
+    },
+    // 添加客户
+    addChannel() {
+      this.customerTitle = '添加客户';
+      this.showEditInfo = true;
+      this.Info = {}
+    },
+    // 分页
+    changePage:function(pageInfo){
+      this.pageInfo = pageInfo;
+      this.getDataList();
+    },
+    // 搜索
+    search:function(){
+      this.pageInfo.page = 1;
+      this.getDataList();
+    },
+    // 关闭弹框
+    closeAddDalog() {
+      this.showEditInfo = false;
+    },
+    // 显示编辑信息弹框
+    showDialog(info, type) {
+      this.customerTitle = '编辑客户';
+      this[type] = true;
+      this.Info = JSON.parse(JSON.stringify(info))
+    },
+    // 清空弹框数据
+    dalogClose:function(formName){
+      this.$refs[formName].resetFields();
+      this.showEditInfo = false;
+    }
+  },
+  mounted(){
+    this.$store.commit('updateMenu','/customerList')
+    this.getDataList();
+    this.getCustomerList();
+  }
+}
+</script>
+
+<style scoped>
+.addBtn{margin-right:16px;}
+.el-select{margin-right:8px}
+.el-range-editor.el-input__inner{margin-right:8px}
+</style>

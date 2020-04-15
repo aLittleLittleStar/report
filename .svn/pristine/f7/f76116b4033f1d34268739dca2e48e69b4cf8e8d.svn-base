@@ -1,0 +1,75 @@
+<template>
+  <div class="content">
+    <v-menu :menuData="menuData"></v-menu>
+    <!-- search -->
+    <el-row type="flex" class="row-bg">
+    </el-row>
+    <!-- table -->
+    <v-table :tableHead="tableHead" :tableData="tableData">
+    </v-table>
+    <!-- page -->
+    <v-page :pageInfo="pageInfo" @changePage="changePage"></v-page>
+  </div>
+</template>
+<script>
+import vTable from "@/components/Table.vue";
+import vPage from "../../components/Page.vue";
+import vMenu from "../../components/menubread.vue";
+import moment from 'moment';
+import {getOrderList} from "../../request/api.js";
+export default {
+  components:{
+    vTable, vMenu, vPage
+  },
+  data () {
+    const validatePhone = (rule, value, callback) => {
+      const r = /(^1[3-9]\d{9}$)/;
+      if (value && !r.test(value)) {
+        return callback(new Error('请输入正确的手机号'));
+      }
+      return callback();
+    };
+    return {
+      // base
+      menuData:[{id:1,name:'数据报表',path:''},{id:2,name:'录入数据',path:''}],
+      pageInfo:{page:1,limit:30,count:0,id:'',project_type:'',timeRange:''},
+      tableHead:[
+        // {id:1,prop:"id",label:"ID",width:"70"},
+      ], 
+      tableData: [],
+    }
+  },
+  methods:{
+    getDataList:function(){
+      var search = '?p='+this.pageInfo.page+"&limit="+this.pageInfo.limit;  
+      getOrderList(search).then(res=>{
+        if(res.code == 1){
+          this.tableData = res.data;
+          this.pageInfo.count = res.count;
+        }
+      }).catch(err => {
+        this.$message({ showClose: true,message: err.message,duration:2000,type: 'error'})
+      });
+    },
+    changePage:function(pageInfo){
+      this.pageInfo = pageInfo;
+      this.getDataList();
+    },
+    // search
+    search:function(){
+      this.pageInfo.page = 1;
+      this.getDataList();
+    }
+  },
+  mounted(){
+    this.$store.commit('updateMenu','/orderList')
+    this.getDataList();
+  }
+}
+</script>
+
+<style scoped>
+.addBtn{margin-right:16px;}
+.el-select{margin-right:8px}
+.el-range-editor.el-input__inner{margin-right:8px}
+</style>

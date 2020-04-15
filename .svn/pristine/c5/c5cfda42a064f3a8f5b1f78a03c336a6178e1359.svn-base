@@ -1,0 +1,433 @@
+<template>
+  <div class="content">
+    <v-menu :menuData="menuData"></v-menu>
+    <!-- search -->
+    <el-row type="flex">
+      <el-button class="addBtn" type="primary" @click="addChannel">创建包号</el-button>
+      <el-select v-model="customer_id" 
+        @change="selectChange('customerList')" clearable filterable placeholder="请选择客户名称">
+        <el-option label="全部(客户名称)" value=''></el-option>
+        <el-option
+          v-for="item in customerData"
+          :key="item.id"
+          :label="item.name"
+          :value="item.id">
+        </el-option>
+      </el-select>
+      <el-select v-model="campaign_id" @change="selectChange('campaignList')" clearable filterable placeholder="请选择推广活动名称">
+        <el-option label="全部(推广活动名称)" value=''></el-option>
+        <el-option
+          v-for="item in activityData"
+          :key="item.id"
+          :label="item.name"
+          :value="item.id">
+        </el-option>
+      </el-select>
+      <el-select v-model="number_id" clearable filterable placeholder="请选择包号">
+        <el-option label="全部(包号)" value=''></el-option>
+        <el-option
+          v-for="item in numberData"
+          :key="item.id"
+          :label="item.name"
+          :value="item.id">
+        </el-option>
+      </el-select>
+      <el-button type="primary" @click="search" icon="el-icon-search">搜索</el-button>
+    </el-row>
+    <!-- table -->
+    <v-table
+      :tableHead="tableHead"
+      :tableData="tableData">
+
+      <el-table-column slot="customer_link" label="客户链接" width="140">
+        <template v-slot="scope">
+          <span class="ellipsis_word">{{scope.row.customer_link}}</span>
+          <span>
+            <span>
+            <el-tooltip
+              :content="scope.row.customer_link" placement="top">
+              <i class="el-icon-warning"></i>
+            </el-tooltip>
+            </span>
+          </span>
+        </template>
+      </el-table-column>
+
+      <el-table-column slot="link" label="可投放链接" width="140">
+        <template v-slot="scope">
+          <span  class="ellipsis_word">{{scope.row.link}}</span>
+          <span>
+            <span>
+            <el-tooltip
+              :content="scope.row.link" placement="top">
+              <i class="el-icon-warning"></i>
+            </el-tooltip>
+            </span>
+          </span>
+        </template>
+      </el-table-column>
+
+      <!-- 操作 -->
+      <el-table-column slot="operate" label="操作" width="160">
+        <template slot-scope="scope">
+          <el-button
+            size="mini" type="default"
+            @click.stop="copyRow(scope.row)">复制
+          </el-button>
+          <el-button v-if="scope.row.status == 'inuse'"
+            size="mini" type="default"
+            @click="review(scope.row)">弃用
+          </el-button>
+          <el-button v-if="scope.row.status == 'removed'"
+            size="mini" type="default" disabled>已弃用
+          </el-button>
+        </template>
+      </el-table-column>
+    </v-table>
+    <v-page :pageInfo="pageInfo" @changePage="changePage"></v-page>
+    <el-dialog title="创建包号" :visible.sync="showEditInfo" append-to-body
+      @close="dalogClose('Info')">
+      <el-form :model="Info" label-position="left" :rules="rules" ref="Info">
+        <el-form-item label="客户名称" :label-width="formLabelWidth" prop="customer_id">
+          <el-select v-model="Info.customer_id" clearable filterable placeholder="请选择客户名称" @change="getAllSelectList()">
+            <el-option
+              v-for="item in allCustomerSelectList"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id">
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="推广活动名称" :label-width="formLabelWidth" prop="campaign_id">
+          <el-select v-model="Info.campaign_id" clearable filterable placeholder="请选择推广活动名称">
+            <el-option
+              v-for="item in allActivityData"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id">
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="包号" :label-width="formLabelWidth" prop="name">
+          <el-input v-model="Info.name" clearable></el-input>
+        </el-form-item>
+        <el-form-item label="客户链接" :label-width="formLabelWidth" prop="customer_link">
+          <el-input v-model="Info.customer_link" clearable></el-input>
+        </el-form-item>
+        <el-form-item label="可投放链接" :label-width="formLabelWidth" prop="link">
+          <el-input v-model="Info.link" clearable></el-input>
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button type="primary" @click="saveEditInfo('Info')">保 存</el-button>
+        <el-button @click="closeAddDalog">取 消</el-button>
+      </div>
+    </el-dialog>
+  </div>
+</template>
+<script>
+import vTable from "@/components/Table.vue";
+import vPage from "../../components/Page.vue";
+import vMenu from "../../components/menubread.vue";
+import {setPackage, getPackageList, getCustomerList, getCampaignList, removePackage} from "../../request/api.js";
+export default {
+  components:{
+    vTable, vMenu, vPage
+  },
+  data () {
+    let regex = '(https?|ftp|file)://[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]'
+    let re = new RegExp(regex)
+    let validateCustomerLink = (rule, value, callback) => {
+      if (value === '' || value === undefined) {
+        callback(new Error('请输入客户链接'))
+      } else {
+        if (!re.test(value)) {
+          callback(new Error('请输入正确格式的客户链接'))
+        }
+        callback()
+      }
+    }
+    let validateLink = (rule, value, callback) => {
+      if (value === '' || value === undefined) {
+        callback(new Error('请输入可投放链接'))
+      } else {
+        if (!re.test(value)) {
+          callback(new Error('请输入正确格式的可投放链接'))
+        }
+        callback()
+      }
+    }
+    return {
+      // base
+      menuData:[{id:1,name:'基础数据管理',path:''},{id:2,name:'包号管理',path:''}],
+      pageInfo:{page:1,limit:30,count:0},
+      Info: {id: '', customer_link: '',link:'',customer_id:'',campaign_id:'', name: ''},
+      tableHead:[
+        {id:1,prop:"id",label:"包号ID",width:"70"},
+        {id:2,prop:"customer_name",label:"客户名称",width:"auto"},
+        {id:3,prop:"campaign_name",label:"推广活动名称",width:"auto"},
+        {id:4,prop:"name",label:"包号",width:"auto"},
+        { slot: "customer_link",width:"auto",type:'tooltip'},
+        { slot: "link",width:"auto",type:'tooltip'},
+        {id:7,prop:"createtime",label:"创建时间",width:"auto"},
+        {id:8,prop:"updatetime",label:"更新时间",width:"auto"},
+        { slot: "operate",showDialog:'showEditInfo'},
+      ],
+      datas: {
+        sel: null, // 选中行
+        dataInfo: []
+      },
+      tableData: [],
+      customer_id: '',
+      customerData: [],
+      campaign_id: '',
+      activityData: [],
+      allCustomerSelectList:[], // 添加包号的搜索框列表数据
+      allActivityData:[],
+      number_id: '',
+      numberData: [],
+      showEditInfo: false,
+      formLabelWidth: '120px',
+      rules: {
+        customer_id: [{ required: true, message: '请选择客户名称', trigger: 'change' }],
+        campaign_id: [{ required: true, message: '请选择推广活动名称', trigger: 'change' }],
+        name: [{ required: true, message: '请输入包号', trigger: 'blur' }],
+        customer_link: [{ required: true, validator: validateCustomerLink, trigger: 'blur' }],
+        link: [{ required: true, validator: validateLink, trigger: 'blur' }]
+      }
+    }
+  },
+  methods:{
+    getDataList:function(){
+      let search = '?paging=1&status=all&page='+this.pageInfo.page+"&pagesize="+this.pageInfo.limit;
+      // 客户名称
+      if(this.customer_id) {
+        search += '&customer_id='+this.customer_id;
+      }
+      if(this.campaign_id) {
+        search += '&campaign_id='+this.campaign_id;
+      }
+      if(this.number_id) {
+        search += '&id='+this.number_id;
+      }
+      console.log("search:", search);
+      getPackageList(search).then(res=>{
+        if(res.code == 0){
+          this.tableData = res.data.data;
+          this.pageInfo.count = res.data.total;
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    // 筛选
+    selectChange:function(name){
+      let search = '?status=all';
+      if(name == 'customerList'){
+        let customer_id = this.customer_id;
+        customer_id ? search +=`&customer_id=${customer_id}` : '';
+        this.activity_id = '';
+        getCampaignList(search).then(res=>{
+          if(res.code == 0){
+              this.activityData = res.data;
+              this.campaign_id = ''
+              this.number_id = ''
+          }
+        }).catch(err => {
+          this.$showMessage('error', err.message)
+        });
+        getPackageList(search).then(res=>{
+          if(res.code == 0){
+            this.numberData = res.data;
+          }
+        }).catch(err => {
+          this.$showMessage('error', err.message)
+        });
+      }else if(name == 'campaignList'){
+        if (this.campaign_id) {
+          search +=`&campaign_id=${this.campaign_id}`
+        } else {
+          this.customer_id ? search +=`&customer_id=${this.customer_id}` : ''
+        }
+        this.number_id = '';
+        getPackageList(search).then(res=>{
+          if(res.code == 0){
+            this.numberData = res.data;
+          }
+        }).catch(err => {
+          this.$showMessage('error', err.message)
+        });
+      }
+    },
+    getAllSelectList(type) {
+      let search = '?customer_id='+this.Info.customer_id
+      if (!type) {
+        this.Info.campaign_id = ''
+      }
+      getCampaignList(search).then(res=>{
+        if(res.code == 0){
+          this.allActivityData = res.data;
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    getNumberList() {
+      let search = '?status=all'
+      getPackageList(search).then(res=>{
+        if(res.code == 0){
+          this.numberData = res.data;
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    getCustomerList:function(){
+      getCustomerList('').then(res=>{
+        if(res.code == 0){
+          this.customerData = res.data;
+          this.allCustomerSelectList = res.data;
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    getActivityList:function(){
+      let search=`?status=all`
+      // 活动 包含已弃用的
+      getCampaignList(search).then(res=>{
+        if(res.code == 0){
+          this.activityData = res.data;
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    // 保存修改信息
+    saveEditInfo(formName) {
+      let data = {}
+      data.id = this.Info.id
+      data.customer_link = this.Info.customer_link
+      data.link = this.Info.link
+      data.name = this.Info.name
+      data.customer_id  = this.Info.customer_id
+      data.campaign_id = this.Info.campaign_id
+      console.log("this.Info:", this.Info);
+      if (!this.Info.id) {
+        delete data.id
+      }
+      this.$refs[formName].validate((valid) => {
+        if (valid) 
+        {
+          setPackage(data).then(res=>{
+            if(res.code == 0){
+              // 添加 / 修改包号信息成功
+              this.showEditInfo = false;
+              this.$showMessage('success', '添加包号成功')
+              this.getDataList()
+              this.getNumberList();
+            }
+          }).catch(err => {
+            this.$showMessage('error', err.message)
+          });
+        }
+      })
+    },
+    // 添加包号
+    addChannel() {
+      this.showEditInfo = true;
+      this.Info = {id: '', customer_link: '',link:'',customer_id:'',campaign_id:'', name: ''}
+      // 点击创建包号的时候 获取推广活动列表
+      getCampaignList('').then(res=>{
+        if(res.code == 0){
+          this.allActivityData = JSON.parse(JSON.stringify(res.data));
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    // 分页
+    changePage:function(pageInfo){
+      this.pageInfo = pageInfo;
+      this.getDataList();
+    },
+    // 搜索
+    search:function(){
+      this.pageInfo.page = 1;
+      this.getDataList();
+    },
+    // 关闭弹框
+    closeAddDalog() {
+      this.showEditInfo = false;
+    },
+    // 显示编辑信息弹框
+    showDialog(info, type) {
+      this[type] = true;
+      this.Info = JSON.parse(JSON.stringify(info))
+      console.log("this.Info:", this.Info);
+    },
+    // 清空弹框数据
+    dalogClose:function(formName){
+      this.$refs[formName].resetFields();
+      this.showEditInfo = false;
+    },
+    // 复制
+    copyRow(row){
+      let newRow = JSON.parse(JSON.stringify(row));
+      console.log("newRow:", newRow)
+      newRow.id = '';
+      this.Info = newRow
+      this.getAllSelectList('copy');
+      console.log("this.Info:", this.Info);
+      if (this.Info.status == 'removed') {
+        this.Info.name = ''
+      }
+      if (newRow.campaign_status != 'inuse') {
+        this.Info.campaign_id = ''
+      }
+      this.showEditInfo = true
+    },
+    review(info){
+      this.$confirm('确定要弃用该包号吗？','提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.Info = {
+          id: info.id
+        }
+        removePackage(this.Info).then(res=>{
+          if(res.code == 0){
+            this.$showMessage('success', '弃用成功')
+            this.getDataList();
+          }
+        }).catch(err => {
+          this.$showMessage('error', err.message)
+        });
+      }).catch(() => {
+        this.$showMessage('info', '已取消解弃用。')
+      });
+    }
+  },
+  mounted(){
+    this.$store.commit('updateMenu','/numberList')
+    if (this.$route.query.customer_id) { //客户
+      this.customer_id = parseInt(this.$route.query.customer_id)
+    }
+    if(this.$route.query.campaign_id) { // 活动
+      this.campaign_id = parseInt(this.$route.query.campaign_id)
+    }
+    this.getDataList();
+    this.getNumberList();
+    this.getCustomerList();
+    this.getActivityList();
+  }
+}
+</script>
+
+<style scoped>
+.addBtn{margin-right:16px;}
+.el-select{margin-right:8px;}
+.el-range-editor.el-input__inner{margin-right:8px;}
+.ellipsis_word{overflow: hidden;text-overflow: ellipsis;white-space: nowrap;width: 50px;display: inline-block;}
+</style>

@@ -1,0 +1,57 @@
+html, body, div, span, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre, abbr, address, cite, code, del, dfn, em, img, ins, kbd, q, samp, small, strong, sub, sup, var, b, i, dl, dt, dd, ol, ul, li, fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td, article, aside, canvas, details, figcaption, figure, footer, header, hgroup, menu, nav, section, summary, time, mark, audio, video {margin:0; padding:0; border:0; outline:0; font-size:100%; vertical-align:baseline; background:transparent; } body { line-height:1; } article,aside,details,figcaption,figure, footer,header,hgroup,menu,nav,section{ display:block; } nav ul { list-style:none; } blockquote, q { quotes:none; } blockquote:before, blockquote:after, q:before, q:after { content:''; content:none; } a { margin:0; padding:0; font-size:100%; vertical-align:baseline; background:transparent; } /* change colors to suit your needs */ ins { background-color:#ff9; color:#000; text-decoration:none; } /* change colors to suit your needs */ mark { background-color:#ff9; color:#000; font-style:italic; font-weight:bold; } del { text-decoration: line-through; } abbr[title], dfn[title] { border-bottom:1px dotted; cursor:help; } table { border-collapse:collapse; border-spacing:0; } /* change border color to suit your needs */ hr { display:block; height:1px; border:0; border-top:1px solid #cccccc; margin:1em 0; padding:0; } input, select { vertical-align:middle; }
+a{text-decoration: none}
+html,body,#app{
+  width:100%;
+  height:100%;
+  overflow: hidden;
+}
+body{
+  font-family:"Helvetica Neue",Helvetica,Arial,"PingFang SC","Hiragino Sans GB","Heiti SC","Microsoft YaHei","WenQuanYi Micro Hei",sans-serif;
+}
+input[type='text']{
+  outline: none;
+}
+::-webkit-scrollbar {  /* 滚动条整体部分 */
+  width:6px;
+  margin-right:2px
+}
+::-webkit-scrollbar-button { /* 滚动条两端的按钮 */
+  width:6px;
+  background-color: transparent;
+}
+::-webkit-scrollbar:horizontal {
+  height:6px;
+  margin-bottom:2px
+}
+::-webkit-scrollbar-track {  /* 外层轨道 */
+  border-radius: 10px;
+}
+::-webkit-scrollbar-track-piece {  /*内层轨道，滚动条中间部分 */
+  background-color: #eee;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb {  /* 滑块 */
+  width:10px;
+  border-radius: 5px;
+  background: #ddd;
+}
+::-webkit-scrollbar-corner { /* 边角 */
+  width: 10px;
+  background-color: #ccc;
+}
+::-webkit-scrollbar-thumb:hover { /* 鼠标移入滑块 */
+  background: #ccc;
+}
+.isHide{
+  display: none;
+}
+.right{float: right}
+
+/*elementUI*/
+/*设置表单输入框 宽度*/
+.el-form .limit-with.el-input,
+.el-form .limit-with.el-select,
+.el-form .limit-with.el-date-editor,
+.el-form .limit-with.el-textarea__inner{max-width: 260px;}
+/*详情右上角编辑图标*/
+.el-icon-edit{font-size: 26px}

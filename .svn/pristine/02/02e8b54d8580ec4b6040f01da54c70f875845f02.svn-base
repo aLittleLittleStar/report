@@ -1,0 +1,33 @@
+const path = require('path')
+const debug = process.env.NODE_ENV !== 'production'
+
+module.exports = {
+  publicPath:'./',      // 基本路径
+  outputDir:'dist',     // 输出文件目录
+  assetsDir: 'static',  // 静态资源目录 (js, css, img, fonts)
+  lintOnSave: true,     // eslint-loader 是否在保存的时候检查
+  devServer: {
+    port: 8080, // 端口号
+    host: '0.0.0.0',
+    https: false, // https:{type:Boolean}
+    open: false, //配置自动启动浏览器
+    proxy: {
+      '/jiti/': {
+        target: 'http://192.168.20.231:8666/',
+        ws: true,
+        changeOrigin: true,
+        pathRewrite:{
+          '^/jiti/': '/jiti/'
+        }
+      },
+      '/uploadfile/': {
+        target: 'http://192.168.20.231:8666/',
+        ws: true,
+        changeOrigin: true,
+        pathRewrite:{
+          '^/uploadfile/': '/uploadfile/'
+        }
+      }
+    },
+  }
+}

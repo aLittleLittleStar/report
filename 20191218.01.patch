@@ -1,0 +1,305 @@
+Index: src/views/baseInfo/activityList.vue
+===================================================================
+--- src/views/baseInfo/activityList.vue	(revision 38347)
++++ src/views/baseInfo/activityList.vue	(working copy)
+@@ -29,6 +29,12 @@
+       :tableData="tableData">
+       <el-table-column slot="operate" label="操作" width="180">
+         <template v-slot="scope">
++          <el-button
++            size="mini" type="default"
++            class="unremoved"
++            @click.stop="editorRow(scope.row)"
++            :disabled="scope.row.status == 'removed'">修改
++          </el-button>
+           <!-- 查看包号 -->
+           <router-link v-if="scope.row.id" :to="'/numberList?campaign_id='+scope.row.id">
+             <el-button size="mini" class="showNumber">查看包号</el-button>
+@@ -35,6 +41,7 @@
+           </router-link>
+           <el-button
+             size="mini" type="default"
++            class="copyactivity"
+             @click.stop="copyRow(scope.row)">复制
+           </el-button>
+           <el-button v-if="scope.row.status == 'inuse'"
+@@ -50,12 +57,12 @@
+       </el-table-column>
+     </v-table>
+     <v-page :pageInfo="pageInfo" @changePage="changePage"></v-page>
+-    <!-- 创建活动 -->
+-    <el-dialog title="创建活动" :visible.sync="showEditInfo" append-to-body
++    <!-- 创建活动  修改活动-->
++    <el-dialog :title="activityTitle" :visible.sync="showEditInfo" append-to-body
+       @close="dalogClose('Info')">
+       <el-form :model="Info" label-position="left" :rules="rules" ref="Info">
+         <el-form-item label="所属客户" :label-width="formLabelWidth" prop="customer_id">
+-          <el-select v-model="Info.customer_id" clearable filterable placeholder="请选择客户名称">
++          <el-select v-model="Info.customer_id" clearable filterable placeholder="请选择客户名称" :disabled="isEditor">
+             <el-option
+               v-for="item in allCustomerData"
+               :label="item.name"
+@@ -64,7 +71,7 @@
+           </el-select>
+         </el-form-item>
+         <el-form-item label="推广活动名称" :label-width="formLabelWidth" prop="name">
+-          <el-input v-model.trim="Info.name" clearable></el-input>
++          <el-input v-model.trim="Info.name" clearable :disabled="isEditor"></el-input>
+         </el-form-item>
+         <el-form-item label="结算方式" :label-width="formLabelWidth" prop="settlement_type">
+            <el-radio-group v-model="Info.settlement_type">
+@@ -113,6 +120,8 @@
+       showEditInfo: false,
+       formLabelWidth: '120px',
+       allCustomerData: [],
++      isEditor: false, // 区分是否是修改【如果为修改 客户名称及推广活动不可进行修改】
++      activityTitle: "",
+       rules: {
+         customer_id: [{ required: true, message: '请选择所属客户', trigger: 'change' }],
+         name: [{ required: true, message: '请输入推广活动名称', trigger: 'blur' }],
+@@ -174,6 +183,7 @@
+     saveEditInfo(formName) {
+       console.log("保存信息")
+       let data = {}
++      let title = "修改活动成功"
+       data.id = this.Info.id
+       data.name = this.Info.name
+       data.settlement_type = this.Info.settlement_type
+@@ -181,14 +191,16 @@
+       console.log("data:", data);
+       if (!this.Info.id) {
+         delete data.id
++        title = "添加活动成功"
+       }
+       this.$refs[formName].validate((valid) => {
+         if (valid) {
+           setCampaign(data).then(res=>{
+             if(res.code == 0){
+-              // 添加 / 编辑活动名称
++              console.log("res:", res);
++              // 添加 / 修改活动名称
+               this.showEditInfo = false;
+-              this.$showMessage('success', '添加活动名称成功')
++              this.$showMessage('success', title)
+               this.getDataList()
+               this.getCampaignList();
+             }
+@@ -201,6 +213,8 @@
+     // 创建活动
+     addChannel() {
+       //创建的活动的结算方式默认为激活状态
++      this.activityTitle = "创建活动";
++      this.isEditor = false;
+       this.showEditInfo = true;
+       this.Info = {
+         settlement_type: 'activation'
+@@ -220,7 +234,7 @@
+     closeAddDalog() {
+       this.showEditInfo = false;
+     },
+-    // 显示编辑信息弹框
++    // 显示修改信息弹框
+     showDialog(info, type) {
+       this[type] = true;
+       this.Info = JSON.parse(JSON.stringify(info))
+@@ -231,7 +245,10 @@
+       this.$refs[formName].resetFields();
+       this.showEditInfo = false;
+     },
++    // 复制活动 【创建新的】
+     copyRow(row){
++      this.activityTitle = "创建活动";
++      this.isEditor = false;
+       let newRow = JSON.parse(JSON.stringify(row));
+       newRow.id = ''
+       this.Info = newRow
+@@ -238,7 +255,7 @@
+       if (this.Info.status == 'removed') {
+         this.Info.name = ''
+       }
+-      this.showEditInfo = true
++      this.showEditInfo = true;
+     },
+     selectCustomerId() { // 客户改变 联动 对应的活动
+       let search ='?status=all&customer_id='+this.customer_id;
+@@ -271,6 +288,14 @@
+       }).catch(() => {
+         this.$showMessage('info', '已取消解弃用。')
+       });
++    },
++    // 修改活动
++    editorRow(info) {
++      console.log("info:", info);
++      this.activityTitle = "修改活动";
++      this.showEditInfo = true;
++      this.isEditor = true;
++      this.Info = JSON.parse(JSON.stringify(info))
+     }
+   },
+   mounted(){
+@@ -286,6 +311,8 @@
+ .addBtn{margin-right:16px;}
+ .el-select{margin-right:8px}
+ .el-range-editor.el-input__inner{margin-right:8px}
+-.showNumber{margin-bottom: 6px;margin-right: 10px}
+-.removed{margin-left: 0px}
++.showNumber{margin-left: 0}
++.unremoved{margin-bottom: 6px; margin-right: 8px}
++.copyactivity{margin-right: 8px;}
++.removed{margin-left: 0}
+ </style>
+Index: src/views/baseInfo/numberList.vue
+===================================================================
+--- src/views/baseInfo/numberList.vue	(revision 38347)
++++ src/views/baseInfo/numberList.vue	(working copy)
+@@ -68,10 +68,16 @@
+       </el-table-column>
+ 
+       <!-- 操作 -->
+-      <el-table-column slot="operate" label="操作" width="auto">
++      <el-table-column slot="operate" label="操作" width="100">
+         <template slot-scope="scope">
+           <el-button
+             size="mini" type="default"
++            class="review"
++            @click.stop="editorRow(scope.row)"
++            :disabled="scope.row.status == 'removed'">修改
++          </el-button>
++          <el-button
++            size="mini" type="default"
+             class="copyRow"
+             @click.stop="copyRow(scope.row)">复制
+           </el-button>
+@@ -88,11 +94,11 @@
+       </el-table-column>
+     </v-table>
+     <v-page :pageInfo="pageInfo" @changePage="changePage"></v-page>
+-    <el-dialog title="创建包号" :visible.sync="showEditInfo" append-to-body
++    <el-dialog :title="numberTitle" :visible.sync="showEditInfo" append-to-body
+       @close="dalogClose('Info')">
+       <el-form :model="Info" label-position="left" :rules="rules" ref="Info">
+         <el-form-item label="客户名称" :label-width="formLabelWidth" prop="customer_id">
+-          <el-select v-model="Info.customer_id" clearable filterable placeholder="请选择客户名称" @change="getAllSelectList()">
++          <el-select v-model="Info.customer_id" clearable filterable placeholder="请选择客户名称" @change="getAllSelectList()" :disabled="isEditor">
+             <el-option
+               v-for="item in allCustomerSelectList"
+               :key="item.id"
+@@ -102,7 +108,7 @@
+           </el-select>
+         </el-form-item>
+         <el-form-item label="推广活动名称" :label-width="formLabelWidth" prop="campaign_id">
+-          <el-select v-model="Info.campaign_id" clearable filterable placeholder="请选择推广活动名称">
++          <el-select v-model="Info.campaign_id" clearable filterable placeholder="请选择推广活动名称" :disabled="isEditor">
+             <el-option
+               v-for="item in allActivityData"
+               :key="item.id"
+@@ -126,6 +132,9 @@
+         <el-button @click="closeAddDalog">取 消</el-button>
+       </div>
+     </el-dialog>
++
++    
++
+   </div>
+ </template>
+ <script>
+@@ -191,6 +200,8 @@
+       numberData: [],
+       showEditInfo: false,
+       formLabelWidth: '120px',
++      isEditor: false, // 区分是否是修改【如果为修改 客户名称及推广活动不可进行修改】
++      numberTitle: "",
+       rules: {
+         customer_id: [{ required: true, message: '请选择客户名称', trigger: 'change' }],
+         campaign_id: [{ required: true, message: '请选择推广活动名称', trigger: 'change' }],
+@@ -309,6 +320,7 @@
+     // 保存修改信息
+     saveEditInfo(formName) {
+       let data = {}
++      let title = "修改包号成功";
+       data.id = this.Info.id
+       data.customer_link = this.Info.customer_link
+       data.link = this.Info.link
+@@ -318,15 +330,15 @@
+       console.log("this.Info:", this.Info);
+       if (!this.Info.id) {
+         delete data.id
++        title = "添加包号成功";
+       }
+       this.$refs[formName].validate((valid) => {
+-        if (valid) 
+-        {
++        if (valid) {
+           setPackage(data).then(res=>{
+             if(res.code == 0){
+               // 添加 / 修改包号信息成功
+               this.showEditInfo = false;
+-              this.$showMessage('success', '添加包号成功')
++              this.$showMessage('success', title)
+               this.getDataList()
+               this.getNumberList();
+             }
+@@ -338,7 +350,9 @@
+     },
+     // 添加包号
+     addChannel() {
++      this.numberTitle = "创建包号";
+       this.showEditInfo = true;
++      this.isEditor = false;
+       this.Info = {id: '', customer_link: '',link:'',customer_id:'',campaign_id:'', name: ''}
+       // 点击创建包号的时候 获取推广活动列表
+       getCampaignList('').then(res=>{
+@@ -362,8 +376,9 @@
+     // 关闭弹框
+     closeAddDalog() {
+       this.showEditInfo = false;
++      this.isEditor = false;
+     },
+-    // 显示编辑信息弹框
++    // 显示修改信息弹框
+     showDialog(info, type) {
+       this[type] = true;
+       this.Info = JSON.parse(JSON.stringify(info))
+@@ -376,6 +391,7 @@
+     },
+     // 复制
+     copyRow(row){
++      this.numberTitle = "创建包号";
+       let newRow = JSON.parse(JSON.stringify(row));
+       console.log("newRow:", newRow)
+       newRow.id = '';
+@@ -388,7 +404,8 @@
+       if (newRow.campaign_status != 'inuse') {
+         this.Info.campaign_id = ''
+       }
+-      this.showEditInfo = true
++      this.showEditInfo = true;
++      this.isEditor = false;
+     },
+     review(info){
+       this.$confirm('确定要弃用该包号吗？','提示', {
+@@ -410,6 +427,15 @@
+       }).catch(() => {
+         this.$showMessage('info', '已取消解弃用。')
+       });
++    },
++    // 修改
++    editorRow(info) {
++      this.numberTitle = "修改包号";
++      this.showEditInfo = true;
++      console.log("info:", info);
++      this.isEditor = true;
++      this.Info = JSON.parse(JSON.stringify(info));
++      this.getAllSelectList('copy');
+     }
+   },
+   mounted(){
+@@ -433,6 +459,6 @@
+ .el-select{margin-right:8px;}
+ .el-range-editor.el-input__inner{margin-right:8px;}
+ .ellipsis_word{overflow: hidden;text-overflow: ellipsis;white-space: nowrap;width: 50px;display: inline-block;}
+-.copyRow{margin-right: 10px}
+-.review{margin-left: 0px;margin-top: 6px}
++.copyRow{margin: 6px 0;}
++.review{margin-left: 0px;}
+ </style>

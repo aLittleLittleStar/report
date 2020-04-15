@@ -1,0 +1,53 @@
+<template>
+  <div class="content">
+    <v-menu :menuData="menuData"></v-menu>
+  </div>
+</template>
+<script>
+import vTable from "@/components/Table.vue";
+import vPage from "../../components/Page.vue";
+import vMenu from "../../components/menubread.vue";
+import moment from 'moment';
+import {} from "../../request/api.js";
+export default {
+  components:{
+    vTable, vMenu, vPage
+  },
+  data () {
+    
+    return {
+      // base
+      menuData:[{id:1,name:'数据报表',path:''},{id:2,name:'计提报表',path:''}],
+      pageInfo:{page:1,limit:30,count:0,},
+      tableHead:[
+      ], 
+      tableData: [],
+      
+    }
+  },
+  methods:{
+    getDataList:function(){
+      
+    },
+    changePage:function(pageInfo){
+      this.pageInfo = pageInfo;
+      this.getDataList();
+    },
+    // search
+    search:function(){
+      this.pageInfo.page = 1;
+      this.getDataList();
+    }
+  },
+  mounted(){
+    this.$store.commit('updateMenu','/reportList')
+    this.getDataList();
+  }
+}
+</script>
+
+<style scoped>
+.addBtn{margin-right:16px;}
+.el-select{margin-right:8px}
+.el-range-editor.el-input__inner{margin-right:8px}
+</style>

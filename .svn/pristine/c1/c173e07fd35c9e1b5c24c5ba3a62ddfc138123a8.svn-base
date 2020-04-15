@@ -1,0 +1,27 @@
+import fetch from './fetch'
+// 登录相关
+export const login = (userInfo) => fetch('/adv/login', userInfo, 'POST')
+export const logout = () => fetch('/adv/loginOut')
+export const getVerify = () => fetch('/adv/verify')
+export const updatePwd = (userInfo) => fetch('/adv/upPwd', userInfo, 'POST')
+// 文件上传
+export const upLoadFile = (data, header) => fetch('/adv/uploadFile', data, 'POST', {'Content-Type': 'multipart/form-data'})
+
+// 订单列表
+export const getOrderList = (data) => fetch('/adv/order'+data)
+
+// 渠道管理
+export const setChannel = (data) => fetch('/jiti/channel',data, 'POST')
+export const getChannelList = (data) => fetch('/jiti/channel'+data)
+// 客户管理
+export const setCustomer = (data) => fetch('/jiti/customer',data, 'POST')
+export const getCustomerList = (data) => fetch('/jiti/customer'+data)
+// 活动管理
+export const setCampaign = (data) => fetch('/jiti/campaign',data, 'POST')
+export const getCampaignList = (data) => fetch('/jiti/campaign'+data)
+// 包号管理
+export const setPackage = (data) => fetch('/jiti/package',data, 'POST')
+export const getPackageList = (data) => fetch('/jiti/package'+data)
+// 员工管理
+export const setStaff = (data) => fetch('/jiti/staff',data, 'POST')
+export const getStaffList = (data) => fetch('/jiti/staff'+data)

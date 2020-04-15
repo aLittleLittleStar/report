@@ -1,0 +1,287 @@
+<template>
+  <div class="content">
+    <v-menu :menuData="menuData"></v-menu>
+    <!-- search -->
+    <el-row type="flex">
+      <el-button class="addBtn" type="primary" @click="addChannel">创建活动</el-button>
+      <el-select v-model="customer_id" clearable filterable placeholder="请选择客户名称" @change="selectCustomerId">
+        <el-option label="全部(客户名称)" value=''></el-option>
+        <el-option
+          v-for="item in customerData"
+          :label="item.name"
+          :value="item.id">
+        </el-option>
+      </el-select>
+      <el-select v-model="activity_id" clearable filterable placeholder="请选择推广活动名称">
+        <el-option label="全部(推广活动名称)" value=''></el-option>
+        <el-option
+          v-for="item in activityData"
+          :key="item.id"
+          :label="item.name"
+          :value="item.id">
+        </el-option>
+      </el-select>
+      <el-button type="primary" @click="search" icon="el-icon-search">搜索</el-button>
+    </el-row>
+    <!-- table -->
+    <v-table
+      :tableHead="tableHead"
+      :tableData="tableData">
+      <el-table-column slot="operate" label="操作" width="155">
+        <template v-slot="scope">
+          <!-- 查看包号 -->
+          <router-link v-if="scope.row.id" :to="'/numberList?campaign_id='+scope.row.id">
+            <el-button size="mini">查看包号</el-button>
+          </router-link>
+          <el-button
+            size="mini" type="default"
+            @click.stop="copyRow(scope.row)">复制
+          </el-button>
+          <el-button v-if="scope.row.status == 'inuse'"
+            size="mini" type="default"
+            @click="review(scope.row)">弃用
+          </el-button>
+          <el-button v-if="scope.row.status == 'removed'"
+            size="mini" type="default" disabled>已弃用
+          </el-button>
+        </template>
+      </el-table-column>
+    </v-table>
+    <v-page :pageInfo="pageInfo" @changePage="changePage"></v-page>
+    <!-- 创建活动 -->
+    <el-dialog title="创建活动" :visible.sync="showEditInfo" append-to-body
+      @close="dalogClose('Info')">
+      <el-form :model="Info" label-position="left" :rules="rules" ref="Info">
+        <el-form-item label="所属客户" :label-width="formLabelWidth" prop="customer_id">
+          <el-select v-model="Info.customer_id" clearable filterable placeholder="请选择客户名称">
+            <el-option
+              v-for="item in allCustomerData"
+              :label="item.name"
+              :value="item.id">
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="推广活动名称" :label-width="formLabelWidth" prop="name">
+          <el-input v-model="Info.name" clearable></el-input>
+        </el-form-item>
+        <el-form-item label="结算方式" :label-width="formLabelWidth" prop="settlement_type">
+           <el-radio-group v-model="Info.settlement_type">
+            <el-radio label="activation">激活</el-radio>
+            <el-radio label="registration">注册</el-radio>
+           </el-radio-group>
+        </el-form-item>
+      </el-form>
+      <div slot="footer">
+        <el-button type="primary" @click="saveEditInfo('Info')">保 存</el-button>
+        <el-button @click="closeAddDalog">取 消</el-button>
+      </div>
+    </el-dialog>
+  </div>
+</template>
+<script>
+import vTable from "@/components/Table.vue";
+import vPage from "../../components/Page.vue";
+import vMenu from "../../components/menubread.vue";
+import {getCampaignList, setCampaign, getCustomerList, removeCampaign} from "../../request/api.js";
+export default {
+  components:{
+    vTable, vMenu, vPage
+  },
+  data () {
+    return {
+      // base
+      menuData:[{id:1,name:'基础数据管理',path:''},{id:2,name:'活动管理',path:''}],
+      pageInfo:{page:1,limit:30,count:0},
+      Info: {id: '',name:'',customer_id:'',settlement_type:'activation'},
+      tableHead:[
+        {id:1,prop:"id",label:"活动ID",width:"70"},
+        {id:2,prop:"name",label:"推广活动名称",width:"auto"},
+        {id:3,prop:"customer_name",label:"客户公司名称",width:"auto"},
+        {id:4,prop:"settlement_type_text",label:"结算方式",width:"auto"},
+        {id:5,prop:"createtime",label:"创建时间",width:"auto"},
+        {id:6,prop:"updatetime",label:"更新时间",width:"auto"},
+        { slot: "operate",path:'/numberList?id=',showDialog:'showEditInfo'},
+      ],
+      dataInfo: [],
+      tableData: [],
+      customer_id: '',
+      customerData: [],
+      activity_id: '',
+      activityData: [],
+      showEditInfo: false,
+      formLabelWidth: '120px',
+      allCustomerData: [],
+      rules: {
+        customer_id: [{ required: true, message: '请选择所属客户', trigger: 'change' }],
+        name: [{ required: true, message: '请输入推广活动名称', trigger: 'blur' }],
+        settlement_type: [{ required: true, message: '请选择结算方式', trigger: 'change' }],
+      }
+    }
+  },
+  methods:{
+    getDataList:function(){
+      let search = '?paging=1&status=all&page='+this.pageInfo.page+"&pagesize="+this.pageInfo.limit;
+      // 客户名称
+      if(this.customer_id) {
+        search += '&customer_id='+this.customer_id;
+      }
+      // 活动名称
+      if(this.activity_id) {
+        search += '&id='+this.activity_id;
+      }
+      getCampaignList(search).then(res=>{
+        if(res.code == 0){
+          this.tableData = res.data.data;
+          this.pageInfo.count = res.data.total;
+            this.tableData.forEach(item => {
+              if (item.settlement_type == 'registration') {
+                item.settlement_type_text = '注册'
+              } else {
+                item.settlement_type_text = '激活'
+              }
+            })
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    // 活动
+    getCampaignList:function(){
+      let search = '?status=all'
+      getCampaignList(search).then(res=>{
+        if(res.code == 0){
+          this.activityData = res.data;
+          console.log("this.activityData", this.activityData);
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    // 客户
+    getCustomerList:function(){
+      getCustomerList('').then(res=>{
+        if(res.code == 0){
+          this.customerData = res.data; // 客户
+          this.allCustomerData = res.data;
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    // 保存修改信息
+    saveEditInfo(formName) {
+      console.log("保存信息")
+      let data = {}
+      data.id = this.Info.id
+      data.name = this.Info.name
+      data.settlement_type = this.Info.settlement_type
+      data.customer_id = this.Info.customer_id
+      console.log("data:", data);
+      if (!this.Info.id) {
+        delete data.id
+      }
+      this.$refs[formName].validate((valid) => {
+        if (valid) {
+          setCampaign(data).then(res=>{
+            if(res.code == 0){
+              // 添加 / 编辑活动名称
+              this.showEditInfo = false;
+              this.$showMessage('success', '添加活动名称成功')
+              this.getDataList()
+              this.getCampaignList();
+            }
+          }).catch(err => {
+            this.$showMessage('error', err.message)
+          });
+        }
+      })
+    },
+    // 创建活动
+    addChannel() {
+      //创建的活动的结算方式默认为激活状态
+      this.showEditInfo = true;
+      this.Info = {
+        settlement_type: 'activation'
+      }
+    },
+    // 分页
+    changePage:function(pageInfo){
+      this.pageInfo = pageInfo;
+      this.getDataList();
+    },
+    // 搜索
+    search:function(){
+      this.pageInfo.page = 1;
+      this.getDataList();
+    },
+    // 关闭弹框
+    closeAddDalog() {
+      this.showEditInfo = false;
+    },
+    // 显示编辑信息弹框
+    showDialog(info, type) {
+      this[type] = true;
+      this.Info = JSON.parse(JSON.stringify(info))
+      console.log("this.Info:", this.Info);
+    },
+    // 清空弹框数据
+    dalogClose:function(formName){
+      this.$refs[formName].resetFields();
+      this.showEditInfo = false;
+    },
+    copyRow(row){
+      let newRow = JSON.parse(JSON.stringify(row));
+      newRow.id = ''
+      this.Info = newRow
+      if (this.Info.status == 'removed') {
+        this.Info.name = ''
+      }
+      this.showEditInfo = true
+    },
+    selectCustomerId() { // 客户改变 联动 对应的活动
+      let search ='?status=all&customer_id='+this.customer_id;
+      getCampaignList(search).then(res=>{
+        if(res.code == 0){
+          this.activityData = res.data;
+          this.activity_id = ''
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    review(info){
+      this.$confirm('确定要弃用该活动吗？','提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.Info = {
+          id: info.id
+        }
+        removeCampaign(this.Info).then(res=>{
+          if(res.code == 0){
+            this.$showMessage('success', '弃用成功')
+            this.getDataList();
+          }
+        }).catch(err => {
+          this.$showMessage('error', err.message)
+        });
+      }).catch(() => {
+        this.$showMessage('info', '已取消解弃用。')
+      });
+    }
+  },
+  mounted(){
+    this.$store.commit('updateMenu','/activityList')
+    this.getDataList();
+    this.getCampaignList();
+    this.getCustomerList();
+  }
+}
+</script>
+
+<style scoped>
+.addBtn{margin-right:16px;}
+.el-select{margin-right:8px}
+.el-range-editor.el-input__inner{margin-right:8px}
+</style>

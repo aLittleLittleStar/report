@@ -1,0 +1,28 @@
+import Vue from "vue";
+import './plugins/axios'
+import App from "./App.vue";
+import router from "./router";
+import store from "./store";
+import './plugins/element.js'
+import 'normalize.css' // a modern alternative to CSS resets
+import './plugins/axios' // axios
+import * as filters from './filter/filter.js'
+
+Object.keys(filters).forEach(key => {
+  Vue.filter(key, filters[key])
+})
+
+import {downFlie, FromDates, isMobile, showMessage} from './utils/tools.js'
+
+Vue.prototype.$FromDates = FromDates
+Vue.prototype.$downFlie = downFlie
+Vue.prototype.$isMobile = isMobile
+Vue.prototype.$showMessage = showMessage
+
+Vue.config.productionTip = false;
+
+new Vue({
+  router,
+  store,
+  render: h => h(App)
+}).$mount("#app");

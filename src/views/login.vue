@@ -1,0 +1,107 @@
+<template>
+  <div class="login-content">
+    <div class="login-title">数据统计工具平台</div> 
+    <el-form :model="user" :rules="userRule" ref="user">
+      <el-form-item prop="account">
+        <el-input v-model="user.account" autocomplete="off"  @keyup.enter.native="login('user')"
+         placeholder="请输入用户名" prefix-icon="el-icon-user">
+        </el-input>
+      </el-form-item>
+      <el-form-item prop="password">
+        <el-input show-password v-model="user.password" autocomplete="off" @keyup.enter.native="login('user')"  placeholder="请输入密码" prefix-icon="el-icon-goods">
+        </el-input>
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" class="login-btn" @click="login('user')">登 录</el-button>
+      </el-form-item>
+    </el-form>
+  </div>
+</template>
+
+<script>
+import {login} from '../request/api.js'
+export default {
+  name:'login',
+  data() {
+    return{
+      user:{
+        account:'',
+        password:''
+      },
+      userRule: {
+        account: [
+          { required: true, message: '请输入用户名', trigger: 'blur' }
+        ],
+        password: [
+          { required: true, message: '请输入密码', trigger: 'blur' }
+        ]
+      }
+    }
+  },
+  methods:{
+    login:function(name){
+      // 登录
+      this.$refs[name].validate((valid) => {
+        if (valid) {
+          var user = {};
+          user.account = this.user.account;
+          user.pwd = this.user.password;
+          login(user).then(res=>{
+            if(res.code == 0){
+              this.$store.commit('login', {username:user.account,userid:res.data.id});
+              this.$router.push('/');
+            }
+          }).catch(err => {
+            this.$showMessage('error', err.message)
+          });
+          
+        }
+      });
+    }
+  },
+  mounted(){}
+}
+</script>
+
+<style lang="stylus" scoped>
+.content
+  height: 100%
+  padding:16px
+  box-sizing: border-box
+.login-title
+  text-align: center
+  font-size: 22px
+  margin: 0 auto 40px
+border-radius()
+  -webkit-border-radius: arguments
+  -moz-border-radius: arguments
+  border-radius: arguments
+.login-content
+  border-radius(5px)
+  background-clip: padding-box;
+  margin: 180px auto;
+  width: 350px;
+  padding: 35px 35px 15px;
+  background: #fff;
+  border: 1px solid #eaeaea;
+  box-shadow: 0 0 25px #cac6c6;
+  text-align:center;
+.dialog-footer
+  margin:0 auto
+.el-button--primary.login-btn
+  width:100%
+.user-line
+  display:flex;
+  justify-content: space-between;
+.inputCode >>>
+  .el-form-item__content
+    display: flex
+    .showCode
+      border: 1px solid #dcdfe6
+      border-radius: 4px
+      width: 100px
+      margin-left: 20px
+      font-size: 18px
+      letter-spacing: 4px
+      font-weight: 600
+</style>

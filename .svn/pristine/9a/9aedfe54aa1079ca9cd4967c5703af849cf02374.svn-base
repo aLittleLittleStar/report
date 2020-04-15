@@ -1,0 +1,123 @@
+<template>
+  <div class="login-content">
+    <div class="login-title">数据统计工具平台</div> 
+    <el-form :model="user" :rules="userRule" ref="user">
+      <el-form-item prop="username">
+        <el-input v-model="user.username" autocomplete="off"  @keyup.enter.native="login('user')"
+         placeholder="请输入用户名" prefix-icon="el-icon-user">
+        </el-input>
+      </el-form-item>
+      <el-form-item prop="password">
+        <el-input show-password v-model="user.password" autocomplete="off" @keyup.enter.native="login('user')"  placeholder="请输入密码" prefix-icon="el-icon-goods">
+        </el-input>
+      </el-form-item>
+      <el-form-item prop="captcha" class="inputCode">
+        <el-input v-model="user.captcha" placeholder="验证码" @keyup.enter.native="login('user')"></el-input>
+        <img class="showCode" src="/adv/verify" @click="getCode">
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" class="login-btn" @click="login('user')">登 录</el-button>
+      </el-form-item>
+    </el-form>
+  </div>
+</template>
+
+<script>
+import {login} from '../request/api.js'
+export default {
+  name:'login',
+  data() {
+    return{
+      user:{
+        username:'',
+        password:'',
+        captcha:''
+      },
+      userRule: {
+        username: [
+          { required: true, message: '请输入用户名', trigger: 'blur' }
+        ],
+        password: [
+          { required: true, message: '请输入密码', trigger: 'blur' }
+        ],
+        captcha: [
+          { required: true, message: '请输入验证码', trigger: 'blur' },
+        ]
+      }
+    }
+  },
+  methods:{
+    login:function(name){
+      // 登录
+      this.$refs[name].validate((valid) => {
+        if (valid) {
+          var user = {};
+          user.name = this.user.username;
+          // user.userpwd = this.$md5(this.user.password);
+          user.pwd = this.user.password;
+          user.captcha = this.user.captcha;
+
+          var res = {data:{id:1}}
+          // login(user).then(res=>{
+          //   if(res.code == 1){
+              this.$store.commit('login', {username:user.name,userid:res.data.id});
+              this.$router.push('/');
+            // }
+          // }).catch(err => {
+          //   this.$message({ showClose: true,message: err.message,duration:2000,type: 'error'})
+          // });
+          
+        }
+      });
+    },
+    getCode:function(){
+      var img = document.querySelector('.showCode');
+      img.setAttribute('src','/adv/verify');
+    }
+  },
+  mounted(){}
+}
+</script>
+
+<style lang="stylus" scoped>
+.content
+  height: 100%
+  padding:16px
+  box-sizing: border-box
+.login-title
+  text-align: center
+  font-size: 22px
+  margin: 0 auto 40px
+border-radius()
+  -webkit-border-radius: arguments
+  -moz-border-radius: arguments
+  border-radius: arguments
+.login-content
+  border-radius(5px)
+  background-clip: padding-box;
+  margin: 180px auto;
+  width: 350px;
+  padding: 35px 35px 15px;
+  background: #fff;
+  border: 1px solid #eaeaea;
+  box-shadow: 0 0 25px #cac6c6;
+  text-align:center;
+.dialog-footer
+  margin:0 auto
+.el-button--primary.login-btn
+  width:100%
+.user-line
+  display:flex;
+  justify-content: space-between;
+.inputCode >>>
+  .el-form-item__content
+    display: flex
+    .showCode
+      border: 1px solid #dcdfe6
+      border-radius: 4px
+      width: 100px
+      margin-left: 20px
+      font-size: 18px
+      letter-spacing: 4px
+      font-weight: 600
+</style>

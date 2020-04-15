@@ -1,0 +1,42 @@
+import fetch from './fetch'
+// 登录相关
+export const login = (userInfo) => fetch('/jiti/login', userInfo, 'POST')
+export const logout = () => fetch('/jiti/logout')
+export const updatePwd = (userInfo) => fetch('/jiti/password', userInfo, 'POST')
+export const getMenuList = () => fetch('/jiti/menu')
+
+// 系统管理---角色列表
+export const getRoleList = () => fetch('/jiti/roles')
+export const setRole = (data) => fetch('/jiti/role', data, 'POST')
+export const getRoleFiled = (type) => fetch('/jiti/roleFiled/'+type)
+// 权限列表
+export const getAuthorList = () => fetch('/jiti/privileges')
+
+// 文件上传
+export const upLoadFile = (data, header) => fetch('/adv/uploadFile', data, 'POST', {'Content-Type': 'multipart/form-data'})
+
+// 录入列表
+export const getDataList = (search) => fetch('/jiti/data'+search)
+export const addData = (data) => fetch('/jiti/data',data,'POST')
+export const delData = (data) => fetch('/jiti/datarm',data,'POST')
+
+// 计提报表
+export const getReportList = (search) => fetch('/jiti/report'+search)
+export const editData = (data) => fetch('/jiti/report',data,'POST')
+export const editJiti = (data) => fetch('/jiti/jiti',data,'POST')
+
+// 渠道管理
+export const setChannel = (data) => fetch('/jiti/channel',data, 'POST')
+export const getChannelList = (data) => fetch('/jiti/channel'+data)
+// 客户管理
+export const setCustomer = (data) => fetch('/jiti/customer',data, 'POST')
+export const getCustomerList = (data) => fetch('/jiti/customer'+data)
+// 活动管理
+export const setCampaign = (data) => fetch('/jiti/campaign',data, 'POST')
+export const getCampaignList = (data) => fetch('/jiti/campaign'+data)
+// 包号管理
+export const setPackage = (data) => fetch('/jiti/package',data, 'POST')
+export const getPackageList = (data) => fetch('/jiti/package'+data)
+// 员工管理
+export const setStaff = (data) => fetch('/jiti/staff',data, 'POST')
+export const getStaffList = (data) => fetch('/jiti/staff'+data)

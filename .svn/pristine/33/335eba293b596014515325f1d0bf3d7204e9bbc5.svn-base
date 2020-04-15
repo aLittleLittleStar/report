@@ -1,0 +1,115 @@
+import Vue from "vue";
+import VueRouter from "vue-router";
+import index from '../views/index.vue'
+import store from '../store/index.js'
+import login from '../views/login.vue'
+
+Vue.use(VueRouter);
+
+const routes = [
+  {
+    path: '/',
+    name: 'index',
+    component: index,
+    redirect: '/home',
+    children: [
+    {
+      path: '/home',
+      component: () => import('../views/home.vue'),
+      meta: {
+        title: 'home'
+      }
+    },
+    // 数据报表
+    {
+      path: '/dataList',
+      component: resolve => require(['../views/data/dataList.vue'], resolve),
+      meta: {
+        title: '录入数据'
+      }
+    },{
+      path: '/reportList',
+      component: resolve => require(['../views/data/reportList.vue'], resolve),
+      meta: {
+        title: '计提报表'
+      }
+    },
+    // 基础数据管理
+    {
+      path: '/channelList',
+      component: resolve => require(['../views/baseInfo/channelList.vue'], resolve),
+      meta: {
+        title: '渠道管理'
+      }
+    },{
+      path: '/customerList',
+      component: resolve => require(['../views/baseInfo/customerList.vue'], resolve),
+      meta: {
+        title: '客户管理'
+      }
+    },{
+      path: '/activityList',
+      component: resolve => require(['../views/baseInfo/activityList.vue'], resolve),
+      meta: {
+        title: '活动管理'
+      }
+    },{
+      path: '/numberList',
+      component: resolve => require(['../views/baseInfo/numberList.vue'], resolve),
+      meta: {
+        title: '包号管理'
+      }
+    },{
+      path: '/staffList',
+      component: resolve => require(['../views/baseInfo/staffList.vue'], resolve),
+      meta: {
+        title: '员工管理'
+      }
+    },
+
+    // 用户管理
+    {
+      path: '/userManage',
+      component: resolve => require(['../views/user/userManage.vue'], resolve),
+      meta: {
+        title: '用户管理'
+      }
+    },{
+      path: '/roleManage',
+      component: resolve => require(['../views/user/roleManage.vue'], resolve),
+      meta: {
+        title: '角色管理'
+      }
+    }
+  ]
+  },
+  {
+    path: '/login', //用户登录
+    name: 'login',
+    component: login
+  },
+  {
+    path: '*',
+    hidden: true,
+    redirect: { path: '/home' }
+  }
+];
+
+const router = new VueRouter({
+  routes
+});
+
+// 非登录状态先登录
+router.beforeEach((to, from, next) => {
+  let isLogin = store.state.isLogin
+  // 用户未登录的情况下只能跳转到首页
+  if (!isLogin) {
+    if (to.path !== '/login') {
+      next({ path: '/login' })
+      return
+    }
+  }
+  next()
+})
+
+export default router;

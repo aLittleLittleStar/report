@@ -1,0 +1,682 @@
+<template>
+  <div class="content">
+    <v-menu :menuData="menuData"></v-menu>
+    <!-- search 搜索 -->
+    <el-row type="flex" class="row-bg" justify="space-between">
+      <el-button size="mini" type="primary" @click="addRow(datas.data)">添加数据</el-button>
+      <el-button size="mini" type="primary" @click="exportFile()">导出报表</el-button>
+    </el-row>
+    <el-row type="flex" class="row-bg">
+      <el-select v-model="searchInfo.customer_id" 
+        @change="selectChangeTop('customerList')" filterable placeholder="客户公司名称">
+        <el-option label="客户公司名称(全部)" value=''></el-option>
+        <el-option
+          v-for="item in selectsTop.customerList"
+          :key="item.id"
+          :label="item.name"
+          :value="item.id"
+          >
+        </el-option>
+      </el-select>
+      <el-select v-model="searchInfo.campaign_id" 
+        @change="selectChangeTop('campaignList')" filterable placeholder="推广活动名称">
+        <el-option label="推广活动名称(全部)" value=''></el-option>
+        <el-option
+          v-for="item in selectsTop.campaignList"
+          :key="item.id"
+          :label="item.name"
+          :value="item.id"
+          >
+        </el-option>
+      </el-select>
+      <el-select v-model="searchInfo.package_id" filterable placeholder="包名">
+        <el-option label="包名(全部)" value=''></el-option>
+        <el-option
+          v-for="item in selectsTop.packageList"
+          :key="item.id"
+          :label="item.name"
+          :value="item.id">
+        </el-option>
+      </el-select>
+      <el-select v-model="searchInfo.channel_id" filterable placeholder="投放渠道公司全称">
+        <el-option label="投放渠道公司全称(全部)" value=''></el-option>
+        <el-option
+          v-for="item in selectsTop.channelList"
+          :key="item.id"
+          :label="item.name"
+          :value="item.id">
+        </el-option>
+      </el-select>
+      <el-date-picker
+        v-model="searchInfo.month"
+        type="month"
+        placeholder="选择月"
+        format="yyyy/MM">
+      </el-date-picker>
+      <el-button type="primary" @click="search" icon="el-icon-search">查询</el-button>
+    </el-row>
+
+    <!-- table 表格 -->
+    <el-table size="mini" :data="datas.data" border style="width: 100%" highlight-current-row>
+      
+      <el-table-column type="index"></el-table-column>
+      <!-- content 内容部分 -->
+      <el-table-column v-for="(item,index) in datas.columns" 
+        :label="item.label" :prop="item.prop" :width="item.width">
+        <template slot-scope="scope">
+          
+          <!-- edit -->
+          <div v-if="scope.row.isSet">
+
+            <!-- date-picker -->
+            <div  v-if="item.datepicker">
+              <el-date-picker
+                v-model="datas.sel[item.prop]"
+                type="date"
+                placeholder="选择日期"
+                format="yyyy/MM/dd"
+                value-format="yyyy/MM/dd">
+              </el-date-picker>
+            </div>
+            <!-- select -->
+            <div  v-else-if="item.select">
+              <el-select v-model="datas.sel[item.propId]" 
+                @change="selectChange(item.select,item.propId)"
+                filterable :placeholder="item.label">
+                <el-option
+                  v-for="item in selects[item.select]"
+                  :key="item.id"
+                  :label="item.name"
+                  :value="item.id"
+                  >
+                </el-option>
+              </el-select>
+            </div>
+            <!-- input -->
+            <div  v-else-if="!item.text">
+              <el-input size="mini" placeholder="请输入内容" clearable v-model="datas.sel[item.prop]">
+              </el-input>
+            </div>
+
+            <!-- text -->
+            <span v-else-if="item.filter&&item.filter=='filterCharging'"> 
+              {{datas.sel[item.prop] | filterCharging}}
+            </span>
+            <span v-else>{{datas.sel[item.prop]}}</span>
+          </div>
+          <!-- unedit -->
+          <span v-else-if="item.filter&&item.filter=='filterCharging'"> 
+            {{scope.row[item.prop] | filterCharging}}
+          </span>
+          <span v-else-if="item.filter&&item.filter=='filterDate'"> 
+            {{scope.row[item.prop] | filterDate}}
+          </span>
+          <span v-else>{{scope.row[item.prop]}}</span>
+        </template>
+      </el-table-column>
+      <!-- 成本 单价 -->
+      <el-table-column class-name="date-cell" label="收入" width="120">
+        <template slot-scope="scope">
+          <div v-if="scope.row.isSet">
+            <el-input size="mini" placeholder="请输入内容"  type='number' class="miniInput"
+              @blur="priceInputChange(scope.row,scope.$index,'income_price')" v-model="datas.sel.income_price">
+            </el-input>
+          </div>
+          <p v-else>
+            {{scope.row.income_price}}
+          </p>
+        </template>
+      </el-table-column>
+      <el-table-column class-name="date-cell" label="成本" width="120">
+        <template slot-scope="scope">
+          <div v-if="scope.row.isSet">
+            <el-input size="mini" placeholder="请输入内容"  type='number' class="miniInput"
+              @blur="priceInputChange(scope.row,scope.$index,'cost_price')" v-model="datas.sel.cost_price">
+            </el-input>
+          </div>
+          <p v-else>
+            {{scope.row.cost_price}}
+          </p>
+        </template>
+      </el-table-column>
+    
+      <!-- 日期相关列 -->
+      <el-table-column class-name="date-cell" label="数据类型" width="120">
+        <template slot-scope="scope">
+          <p>收入</p>
+          <p>成本</p>
+        </template>
+      </el-table-column>
+      
+      <el-table-column class-name="date-cell" label="总激活" width="120">
+        <template slot-scope="scope">
+          <p>
+            <span v-if="scope.row.isSet">{{datas.sel.income.total_num}}</span>
+            <span v-else>{{scope.row.income.total_num}}</span>
+          </p>
+          <p>
+            <span v-if="scope.row.isSet">{{datas.sel.cost.total_num}}</span>
+            <span v-else>{{scope.row.cost.total_num}}</span>
+          </p>
+        </template>
+      </el-table-column>
+      <el-table-column class-name="date-cell" label="总收入" width="120">
+        <template slot-scope="scope">
+          <p>
+            <span v-if="scope.row.isSet">{{datas.sel.income.total_income}}</span>
+            <span v-else>{{scope.row.income.total_income}}</span>
+          </p>
+          <p>
+            <span v-if="scope.row.isSet">{{datas.sel.cost.total_income}}</span>
+            <span v-else>{{scope.row.cost.total_income}}</span>
+          </p>
+        </template>
+      </el-table-column>
+      <el-table-column class-name="date-cell" v-for="(item,index) in datas.datecolumns" :label="item.label" 
+        :prop="item.prop" :width="item.width">
+        <template slot-scope="scope">
+          <div v-if="scope.row.isSet">
+            <el-input size="mini" placeholder="请输入内容"   type='number' class="miniInput"
+              @blur="dateIncomeChange(scope.row,scope.$index,item.prop)" v-model="datas.sel.income[item.prop]">
+            </el-input>
+          </div>
+           <p v-else>
+            {{scope.row.income[item.prop]}}
+          </p>
+          <div v-if="scope.row.isSet" class="inputCost">
+            <el-input size="mini" placeholder="请输入内容"  type='number' class="miniInput"
+              @blur="dateCostChange(scope.row,scope.$index,item.prop)" v-model="datas.sel.cost[item.prop]">
+            </el-input>
+          </div>
+          <p v-else>
+            {{scope.row.cost[item.prop]}}
+          </p>
+
+        </template>
+      </el-table-column>
+      <el-table-column label="扣量比例(%)" prop='status' width="120">
+         <template slot-scope="scope">
+          <!-- edit -->
+          <div v-if="scope.row.isSet">
+            <el-input size="mini" placeholder="请输入内容" type='number' class="miniInput"
+              @change="proportion(scope.row,scope.$index)"
+              v-model="datas.sel.ratio">
+            </el-input>
+          </div>
+          <!-- unedit -->
+          <span v-else>{{scope.row.ratio}}</span>
+        </template>
+      </el-table-column>
+
+      <!-- 操作 -->
+      <el-table-column label="操作" width="150" fixed='right'>
+        <template slot-scope="scope">
+          <span v-if="scope.row.isSet" class="el-tag el-tag--success el-tag--mini" 
+            @click.stop="saveRow(scope.row,scope.$index)">保存
+          </span>
+          <span v-if="scope.row.isSet" class="el-tag el-tag--primary el-tag--mini" 
+            @click.stop="cancelRow(scope.row,scope.$index,datas.data)">取消
+          </span>
+          
+          <span v-if="!scope.row.isSet" class="el-tag el-tag--primary el-tag--mini" 
+            @click="editRow(scope.row,scope.$index)">编辑
+          </span>
+          <span v-if="!scope.row.isSet && scope.row.status !== 1" class="el-tag el-tag--success el-tag--mini" 
+            @click.stop="copyRow(scope.row,scope.$index,datas.data)">复制
+          </span>
+          <span v-if="!scope.row.isSet && scope.row.status !== 1" class="el-tag el-tag--danger el-tag--mini" 
+            @click="deleteRow(scope.row,scope.$index,datas.data)">删除
+          </span>
+        </template>
+      </el-table-column>
+    
+    </el-table>
+  </div>
+</template>
+<script>
+import vTable from "@/components/Table.vue";
+import vMenu from "../../components/menubread.vue";
+import * as API from '../../request/api.js'
+export default {
+  components:{
+    vTable, vMenu
+  },
+  data () {
+    return {
+      // base
+      menuData:[{id:1,name:'数据报表',path:''},{id:2,name:'录入数据',path:''}],
+      searchInfo:{
+        customer_id:'',
+        campaign_id:'',
+        package_id:'',
+        channel_id:'',
+        month:''
+      },
+      datas:{
+        sel: null, //选中行  编辑，复制，添加 --数据
+        columns:[
+          { prop:"customer_name", label:"客户公司名称", width: 120, select:'customerList', propId:"customer_id"},
+          { prop: "campaign_name", label: "推广活动名称", width: 150, select:'campaignList', propId:"campaign_id"},
+          { prop: "package_name", label: "包名", width: 120, select:'packageList', propId:"package_id"},
+          { prop: "staff_name", label: "负责人", width: 120, select:'staffList', propId:"staff_id"},
+          { prop: "startdate", label: "上线日期", width: 170, input:true, datepicker:'startdate'},
+          { prop: "enddate", label: "暂停日期", width: 170, input:true, datepicker:'enddate'},
+          { prop: "channel_name", label: "投放渠道公司全称", width: 120, select:'channelList', propId:"channel_id"},
+          { prop: "customer_link", label: "客户链接", width: 120, text:true},
+          { prop: "link", label: "可投放链接", width: 120, text:true},
+          { prop: "settlement_type", label: "计费方式", width: 120, text:true ,filter:"filterCharging"},
+          // { prop: "income_price", label: "收入（单价）", width: 120},
+          // { prop: "cost_price", label: "成本（单价）", width: 120},
+        ],
+        datecolumns:[], //日期表头
+        data:[],  //表格数据
+      },
+      selects:{ // 
+        customerList:[{id:1, name:'test1'}],//客户
+        campaignList:[],  //活动  
+        packageList:[], //包号
+        channelList:[], //渠道
+        staffList:[]  //员工
+      },
+      selectsTop:{  // 顶部筛选数据
+        customerList:[],//客户
+        campaignList:[],  //活动  
+        packageList:[], //包号
+        channelList:[], //渠道
+      }
+    }
+  },
+  methods:{
+    getDataList:function(){
+      var month = this.$moment(this.searchInfo.month).format('YYYY/MM')
+      let search = '?month='+month;
+      if(this.searchInfo.customer_id || this.searchInfo.customer_id === 0) {
+        search += '&customer_id='+this.customer_id;
+      }
+      if(this.searchInfo.campaign_id || this.searchInfo.campaign_id === 0) {
+        search += '&campaign_id='+this.campaign_id;
+      }
+      if(this.searchInfo.package_id || this.searchInfo.package_id === 0) {
+        search += '&package_id='+this.package_id;
+      }
+      if(this.searchInfo.channel_id || this.searchInfo.channel_id === 0) {
+        search += '&channel_id='+this.channel_id;
+      }
+      API.getDataList(search).then(res=>{
+        if(res.code == 0){
+           res.data.forEach(item=>{
+              this.datas.datecolumns.forEach(dataItem=>{
+                if(Array.isArray(item.income)){item.income = {}}
+                if(Array.isArray(item.cost)){item.cost = {}}
+                item.income[dataItem.prop] = item.income[dataItem.prop] || null
+                item.cost[dataItem.prop] = item.cost[dataItem.prop] || null
+                item.startdate = item.startdate.split('-').join('/')
+                item.enddate = item.startdate.split('-').join('/')
+              })
+           });
+          this.datas.data = res.data;
+          console.log(this.datas.data)
+        }
+      }).catch(err => {
+        this.$showMessage('error',err.message)
+      });
+    },
+    search:function(){
+      this.getDateColumn(); //重新获取搜索月日期表头
+      this.searchInfo.page = 1;
+      this.getDataList();
+    },
+    // 导出报表
+    exportFile:function(){
+      var month = this.$moment(this.searchInfo.month).format('YYYY/MM')
+      let search = '?month='+month+"&export=export";
+      if(this.searchInfo.customer_id || this.searchInfo.customer_id === 0) {
+        search += '&customer_id='+this.customer_id;
+      }
+      if(this.searchInfo.campaign_id || this.searchInfo.campaign_id === 0) {
+        search += '&campaign_id='+this.campaign_id;
+      }
+      if(this.searchInfo.package_id || this.searchInfo.package_id === 0) {
+        search += '&package_id='+this.package_id;
+      }
+      if(this.searchInfo.channel_id || this.searchInfo.channel_id === 0) {
+        search += '&channel_id='+this.channel_id;
+      }
+      console.log('/jiti/data'+search)
+      this.$downFlie('/jiti/data'+search);
+    },
+    // 顶部筛选
+    selectChangeTop:function(name){
+      let search = '';
+      let nameArr = [];
+      if(name == 'customerList'){
+        let customer_id = this.searchInfo.customer_id || '';
+        customer_id ? search=`?customer_id=${customer_id}` : '';
+        nameArr = [
+          {type:'getCampaignList', name:'campaignList', search:search}, 
+          {type:'getPackageList',name:'packageList', search:search}
+        ]
+        this.searchInfo.campaign_id = '';
+        this.searchInfo.package_id = '';
+        this.getSelectList(nameArr,'selectsTop');
+      }else if(name == 'campaignList'){
+        let campaign_id = this.searchInfo.campaign_id || '';
+        campaign_id ? search=`?campaign_id=${campaign_id}` : '';
+        nameArr = [
+          {type:'getPackageList',name:'packageList', search:search}
+        ]
+        this.searchInfo.package_id = '';
+        this.getSelectList(nameArr,'selectsTop');
+      }
+    },
+    // 表格内下拉筛选--请求接口
+    getSelectList:function(nameArr, selectName){
+      nameArr.forEach(item=>{
+        API[item.type](item.search).then(res=>{
+          if(res.code == 0){
+            if(!selectName){  //初始 顶部筛选数据和表格里面下拉列表数据
+              this.selects[item.name] = res.data;
+              this.selectsTop[item.name] = res.data;
+            }else{
+              this[selectName][item.name] = res.data;
+            }
+            console.log(typeof callback)
+          }
+        }).catch(err => {
+          this.$showMessage('error', err.message)
+        });
+      })
+    },
+    // select 处理级联关系筛选
+    selectChange:function(name,prop){
+      let search = '';
+      let nameArr = [];
+      if(name == 'customerList'){
+        let customer_id = this.datas.sel.customer_id || '';
+        customer_id ? search=`?customer_id=${customer_id}` : '';
+        nameArr = [
+          {type:'getCampaignList', name:'campaignList', search:search}, 
+          {type:'getPackageList',name:'packageList', search:search}
+        ]
+        this.datas.sel.campaign_id = '';
+        this.datas.sel.package_id = '';
+        this.getSelectList(nameArr,'selects');
+      }else if(name == 'campaignList'){
+        let campaign_id = this.datas.sel.campaign_id || '';
+        campaign_id ? search=`?campaign_id=${campaign_id}` : '';
+        nameArr = [
+          {type:'getPackageList',name:'packageList', search:search}
+        ]
+        this.datas.sel.package_id = '';
+        this.getSelectList(nameArr,'selects');
+      }else if(name == 'packageList'){
+        let package_id = this.datas.sel.package_id || '';
+        if(package_id){
+          this.selects.packageList.forEach(item=>{
+            if(item.id == package_id){
+              this.datas.sel.link = item.link
+              this.datas.sel.customer_link = item.customer_link
+              this.datas.sel.settlement_type = item.settlement_type || 'activation'
+            }
+          })
+        }
+      }
+    },
+    toFixed2:function(value){
+      return parseFloat(parseFloat(value).toFixed(2));
+    },
+    // 价格修改--计算总数
+    priceInputChange:function(){
+      let income = this.datas.sel.income;
+      let cost = this.datas.sel.cost;
+      let total_num = income.total_num || 0;
+      let total_num_cost = cost.total_num || 0;
+      this.datas.sel.income_price = this.toFixed2(this.datas.sel.income_price);
+      this.datas.sel.cost_price = this.toFixed2(this.datas.sel.cost_price);
+      if(total_num !== 0 && this.datas.sel.income_price){
+        income.total_income = this.toFixed2(total_num * this.datas.sel.income_price);
+      }
+      if(total_num_cost !== 0 && this.datas.sel.cost_price){
+        cost.total_income = this.toFixed2(total_num_cost * this.datas.sel.cost_price);
+      }
+      this.datas.sel.income = income;
+      this.datas.sel.cost = cost;
+    },
+    // 修改 收入数--计算成本数
+    dateIncomeChange:function(row,index,prop){
+      let sel = this.datas.sel
+      if(row.income[prop] !== sel.income[prop]){
+        sel.income[prop] = this.toFixed2(sel.income[prop]);
+        sel.cost[prop] = this.toFixed2(sel.income[prop] * ((100 - sel.ratio)* 0.01));
+        this.countTotal(row,index);
+      }
+    },
+    // 修改 成本数--计算成本数
+    dateCostChange:function(row,index,prop){
+      let sel = this.datas.sel
+      if(row.income[prop] !== sel.income[prop]){
+        sel.cost[prop] = this.toFixed2(sel.cost[prop]);
+        this.countTotal(row,index);
+      }
+    },
+    // 计算总数 总收入
+    countTotal:function(){
+      let income = this.datas.sel.income;
+      let cost = this.datas.sel.cost;
+      let total_num = 0;
+      let total_num_cost = 0;
+      this.datas.datecolumns.forEach(item=>{
+        if(income[item.prop]){
+          total_num += parseFloat(income[item.prop]);
+        }
+        if(cost[item.prop]){
+          total_num_cost += parseFloat(cost[item.prop]);
+        }
+      })
+
+      if(total_num !== 0 && this.datas.sel.income_price){
+        income.total_num = total_num
+        income.total_income = total_num * this.datas.sel.income_price;
+      }
+      console.log(income.total_num,income.total_income)
+      if(total_num_cost !== 0 && this.datas.sel.cost_price){
+        cost.total_num = total_num_cost
+        cost.total_income = total_num_cost * this.datas.sel.cost_price;
+
+      }
+      console.log(cost.total_num,cost.total_income)
+
+      this.datas.sel.income = income;
+      this.datas.sel.cost = cost;
+    },
+    // 扣量比例调整 计算对应的成本数（已经保存的成本数不重新计算）
+    proportion:function(row,index){
+      let sel = this.datas.sel;
+      let flog = false;
+      this.datas.datecolumns.forEach(item=>{
+        console.log(row,item.prop)
+        if(row.income[item.prop] !== sel.income[item.prop]){
+          flog = true;
+          sel.cost[item.prop] = this.toFixed2(sel.income[item.prop] * ((100 - sel.ratio)* 0.01));
+        }
+      })
+      flog && this.countTotal(row,index);
+    },
+    // 添加
+    addRow(rows) {
+      let count = 0;
+      for (let i of this.datas.data) {
+        if (i.isSet) return this.$message.warning(`请先保存第${count+1}项`);
+        count++;
+       // i.isSet = false;
+      }
+      let newRow = JSON.parse(JSON.stringify(this.datas.data[0]));
+      for (let k in newRow) {
+        newRow[k] = '' 
+      }
+      rows.push(newRow);
+      this.datas.sel = JSON.parse(JSON.stringify(newRow));
+      newRow.isSet = true
+    }, 
+    // 校验提交数据是否为空
+    validateData(data){
+      let validateInfo = {code:0, message:''}
+      var validateArr = [
+        {prop:'cost_price',message:'请输入成本单价'},
+        {prop:'income_price',message:'请输入收入单价'},
+        {prop:'channel_id',message:'请选择渠道'},
+        {prop:'enddate',message:'请输入暂停日期'},
+        {prop:'startdate',message:'请输入上线日期'},
+        {prop:'staff_id',message:'请选择员工'},
+        {prop:'package_id',message:'请选择包'},
+        {prop:'campaign_id',message:'请选择活动'},
+        {prop:'customer_id',message:'请选择客户'},
+      ]
+      validateArr.forEach(item => {
+        if(!data[item.prop]){
+          validateInfo.code = -1;
+          validateInfo.message = item.message;
+          return validateInfo;
+        }
+      })
+      return validateInfo;
+    },
+    saveRow(row, index) { //保存
+      let data = JSON.parse(JSON.stringify(this.datas.sel));
+      for (let k in data) {
+        row[k] = data[k] 
+      }
+      data.month = this.$moment(this.searchInfo.month).format('YYYY/MM')
+      var validateInfo = this.validateData(data);
+      if(validateInfo.code == -1){
+        this.$showMessage('error', validateInfo.message);
+        return
+      }
+      API.addData(data).then(res=>{
+        if(res.code == 0){
+          row.isSet = false;
+          this.$set(this.datas.data, index, row);
+          this.$showMessage('success', '保存成功！')
+          this.getDataList();
+        }
+      }).catch(err => {
+        this.$showMessage('error', err.message)
+      });
+    },
+    cancelRow(row, index,rows) { //取消
+      row.isSet = false;
+      this.$set(this.datas.data, index, row);
+      if(!row.id){
+        rows.splice(index,1);
+      }
+    },
+    editRow(row,index) { //编辑
+      let count = 0;
+      for (let i of this.datas.data) {
+        if (i.isSet) return this.$message.warning(`请先保存第${count+1}项`);
+        count++;
+       // i.isSet = false;
+      }
+      this.datas.sel = JSON.parse(JSON.stringify(row));
+      row.isSet = true;
+      this.$set(this.datas.data, index, row);
+    },
+    deleteRow(row, index, rows) { //删除
+      rows.splice(index, 1)
+      // 如果当前行有id则同时接口删除ajax
+      let id = row.id || '';
+      id&&API.delData({id:id}).then(res=>{
+         if(res.code == 0){
+            this.$showMessage('success', '删除成功！')
+            this.getDataList();
+          }
+      }).catch(err=>{
+        this.$showMessage('error', err.message)
+      });
+    },
+    // 复制
+    copyRow(row,index,rows){
+      let count = 0;
+      for (let i of this.datas.data) {
+        if (i.isSet) return this.$message.warning(`请先保存第${count+1}项`);
+        count++;
+        // i.isSet = false;
+      }
+      let newRow = JSON.parse(JSON.stringify(row));
+      newRow.copy_from = newRow.id //复制源
+      newRow.id = '';
+      rows.splice(index+1,0,newRow);
+      this.datas.sel = JSON.parse(JSON.stringify(newRow));
+
+      newRow.isSet = true
+
+      this.$set(this.datas.data, index+1, newRow);
+    },
+    // 获取月份的天数，作为表格日期的表头
+    getDateColumn:function(){
+      let month = this.searchInfo.month;
+      let dayEnd = this.$moment(month).endOf("month").dates();
+      let monthForamt = this.$moment(month).format('YYYY/MM')
+      let dayHead = []; 
+      for(let i = 0; i < dayEnd; i++){
+        let day = (i+1)>9?(i+1):('0'+(i+1))
+        let dayFormat =  monthForamt + "/" + day;
+        let id = 18 + i;
+        let item = {prop:dayFormat,label:dayFormat, width:"100"};
+        dayHead.push(item)
+      }
+      this.datas.datecolumns = dayHead;
+    }
+
+  },
+  mounted(){
+    this.searchInfo.month = this.$moment().subtract(4,'month');
+    this.getDataList();
+    this.getDateColumn();
+    let nameArr = [ 
+      {type:'getCustomerList', name:'customerList', search:''}, 
+      {type:'getCampaignList', name:'campaignList', search:''}, 
+      {type:'getPackageList',name:'packageList', search:''}, 
+      {type:'getChannelList',name:'channelList', search:''},
+      {type:'getStaffList',name:'staffList', search:''}
+    ]
+    this.getSelectList(nameArr);
+    this.$store.commit('updateMenu','/dataList')
+  }
+}
+</script>
+
+<style lang="stylus" scoped>
+.addBtn
+  margin-right:16px
+.el-select
+  margin-right:8px
+.el-range-editor.el-input__inner,.el-date-editor.el-input, .el-date-editor.el-input__inner
+  margin-right:8px
+.row-bg.el-row--flex
+  margin-bottom:12px
+.el-tag--mini.el-tag
+  margin-right:2px
+  cursor:pointer
+.el-table >>> .date-cell .cell
+  padding: 0;
+  text-align: center;
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: column;
+.el-table .date-cell .cell p 
+  flex: 1 0 23px;
+.el-table .date-cell .cell p:nth-child(2n)
+  border-top:1px solid #EBEEF5;
+.inputCost
+  margin-top:4px
+.el-input--mini.miniInput >>> .el-input__inner
+  padding-right:6px;
+
+.el-date-editor.el-input
+  width:auto
+.el-input--medium.el-date-editor.el-input .el-input__inner
+  padding: 0 6px;
+  text-align: center;
+</style>

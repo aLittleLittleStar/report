@@ -1,0 +1,205 @@
+<template>
+  <div class="content">
+    <v-menu :menuData="menuData"></v-menu>
+
+    <!-- search -->
+    <el-row type="flex" class="row-bg">
+      <el-date-picker
+        v-model="searchInfo.month"
+        type="month"
+        placeholder="选择月"
+        format="yyyy/MM">
+      </el-date-picker>
+      <el-button type="primary" @click="search" icon="el-icon-search">查询</el-button>
+    </el-row>
+
+    <!-- export -->
+    <el-row type="flex" class="row-bg addFlodwarp">
+      <el-button size="mini" type="primary" @click="eport()">导出报表</el-button>
+    </el-row>
+
+    <!-- table -->
+    <el-table size="mini" :data="datas.data" border style="width: 100%" 
+      @selection-change="handleSelectionChange"
+      highlight-current-row>
+      <el-table-column type="selection" width="55"></el-table-column>
+      <el-table-column v-for="(item,index) in datas.columns" :label="item.label" :prop="item.prop" :width="item.width">
+        <template slot-scope="scope">
+          <!-- inoput -->
+          <div  v-if="item.input">
+            <!-- edit -->
+            <div v-if="scope.row.isSet && scope.row.isSet == item.input">
+              <el-input size="mini" placeholder="请输入内容" v-model="datas.sel[item.prop]">
+              </el-input>
+              <span class="el-tag el-tag--success el-tag--mini" style="cursor: pointer;" 
+                @click.stop="saveInput(scope.row,scope.$index)">保存</span>
+              <span class="el-tag el-tag--default el-tag--mini" style="cursor: pointer;" 
+                @click.stop="calcelInput(scope.row,scope.$index,datas.data)">取消</span>
+            </div>
+            <div v-else>
+              <span>{{scope.row[item.prop]}}</span>
+              <span class="el-tag el-tag--primary el-tag--mini" style="cursor: pointer;" 
+                @click.stop="editInput(scope.row,scope.$index,item.input)">修改</span>
+            </div>
+          </div>
+
+          <!-- radio -->
+          <div  v-else-if="item.radio">
+            <el-radio v-model="scope.row[item.prop]" :label="1"
+              @click.native.prevent="changeRadio(scope.row,scope.$index,item.radio,1)">是</el-radio>
+            <el-radio v-model="scope.row[item.prop]" :label="0"
+              @click.native.prevent="changeRadio(scope.row,scope.$index,item.radio,0)">否</el-radio>
+          </div>
+          
+          <!-- text -->
+          <div  v-else>
+            {{scope.row[item.prop]}}
+          </div>
+        </template>
+      </el-table-column>
+     
+    </el-table>
+
+    <!-- operate -->
+    <el-row type="flex" class="row-bg">
+      <el-button size="mini" type="primary" @click="operateSelect(1)">已回款 , 已开票</el-button>
+      <el-button size="mini" type="primary" @click="operateSelect(2)">已回款 , 未开票</el-button>
+    </el-row>
+
+  </div>
+</template>
+<script>
+import vMenu from "../../components/menubread.vue";
+import moment from 'moment';
+import {getOrderList} from "../../request/api.js";
+export default {
+  components:{ vMenu },
+  data () {
+    const timeHead = []
+    return {
+      // base
+      menuData:[{id:1, name:'数据报表', path:''},{id:2, name:'计提报表', path:''}],
+      searchInfo:{page:1, limit:30, count:0, month:''},
+      datas:{
+        sel: null, //编辑行   
+        columns:[
+          { prop:"project_name", label:"客户属性", width: 120},
+          { prop: "put_start_time", label: "数据提供人", width: 150},
+          { prop: "project_type", label: "客户公司名称", width: 120},
+          { prop: "put_money", label: "推广活动名称", width: 120},
+          { prop: "put_start_time", label: "包名", width: 120},
+          { prop: "put_end_time", label: "负责人", width: 120},
+          { prop: "status", label: "投放渠道公司全称", width: 120, text:true},
+          { prop: "project_name", label: "投放渠道简称", width: 120},
+          { prop: "project_name", label: "投放数量", width: 'auto'},
+          { prop: "project_name", label: "收入单价", width: 'auto'},
+          { prop: "project_name", label: "扣除返点后金额（人民币）（财务入账）最终", width: '180'},
+          { prop: "project_type", label: "核减后收入", width: 120,input:'income'},
+          { prop: "project_name", label: "收款方", width: 'auto'},
+          { prop: "project_name", label: "激活量", width: 'auto'},
+          { prop: "project_name", label: "成本单价", width: 'auto'},
+          { prop: "project_name", label: "最终扣除返点后金额（人民币）（财务入账）", width: '180'},
+          { prop: "project_name", label: "核减后成本", width: 120,input:'cost'},
+          { prop: "status", label: "是否回款", width: 150,radio:'status'},
+          { prop: "is_receive", label: "是否开票", width: 150,radio:'is_receive'}
+        ],
+        data:[
+        ],
+      },
+      multipleSelection:[]
+    }
+  },
+  methods:{
+    getDataList:function(){
+      var search = '?p='+this.searchInfo.page+"&limit="+this.searchInfo.limit;  
+      // getOrderList(search).then(res=>{
+      //   if(res.code == 1){
+      //     this.tableData = res.data;
+      //     this.searchInfo.count = res.count;
+      //   }
+      // }).catch(err => {
+      //   this.$message({ showClose: true,message: err.message,duration:2000,type: 'error'})
+      // });
+      this.datas.data = [
+        {"id":22,"project_name":"test004","put_start_time":"2019-10-17","put_end_time":"2019-10-19","project_type":"\u8d44\u8baf","put_money":"1.00","status":1,"create_time":"2019-10-30 11:21:29","give_out":0,"is_receive":1,"uncollected":1},{"id":21,"project_name":"test003M","put_start_time":"2019-10-23","put_end_time":"2019-10-24","project_type":"\u4e66\u7c4d\u9605\u8bfb","put_money":"1.00","status":0,"create_time":"2019-10-30 11:15:31","give_out":0,"is_receive":1,"uncollected":1},{"id":20,"project_name":"test001","put_start_time":"2019-10-04","put_end_time":"2019-11-04","project_type":"\u4e66\u7c4d\u9605\u8bfb","put_money":"1.00","status":1,"create_time":"2019-10-29 17:53:12","give_out":0,"is_receive":1,"uncollected":1},{"id":19,"project_name":"\u7684\u98d2\u98d2\u7684","put_start_time":"2019-11-03","put_end_time":"2019-11-06","project_type":"\u6444\u5f71\u4e0e\u5f55\u50cf","put_money":"99999999.99","status":1,"create_time":"2019-10-29 16:48:45","give_out":0,"is_receive":1,"uncollected":99999999.99},{"id":18,"project_name":"\u7684\u4f24\u611f\u7684","put_start_time":"2019-10-27","put_end_time":"2019-11-22","project_type":"\u8d44\u8baf","put_money":"99999999.99","status":1,"create_time":"2019-10-29 16:45:08","give_out":0,"is_receive":1,"uncollected":99999999.99},{"id":17,"project_name":"test001M","put_start_time":"2019-10-09","put_end_time":"2019-10-26","project_type":"\u4e66\u7c4d\u9605\u8bfb","put_money":"1.00","status":1,"create_time":"2019-10-28 14:15:17","give_out":3,"is_receive":1,"uncollected":0.7},{"id":14,"project_name":"test002M","put_start_time":"2019-10-03","put_end_time":"2019-10-04","project_type":"\u8d44\u8baf","put_money":"1.00","status":1,"create_time":"2019-10-24 15:40:57","give_out":5,"is_receive":1,"uncollected":0.5},{"id":12,"project_name":"test001","put_start_time":"2019-10-03","put_end_time":"2019-10-05","project_type":"\u4e66\u7c4d\u9605\u8bfb","put_money":"1.00","status":1,"create_time":"2019-10-24 15:10:47","give_out":3,"is_receive":1,"uncollected":0.7}
+      ]
+      
+    },
+    changePage:function(searchInfo){
+      this.searchInfo = searchInfo;
+      this.getDataList();
+    },
+    // search
+    search:function(){
+      console.log(111)
+      this.searchInfo.page = 1;
+      this.getDataList();
+    },
+    eport(){
+
+    },
+    // 复选框
+    handleSelectionChange(val) {
+      this.multipleSelection = val;
+      console.log(val)
+    },
+    // 回款 开票
+    operateSelect(type){
+      let selectIds = [];
+      this.multipleSelection.forEach(item=>{
+        selectIds.push(item.id);
+      })
+      console.log(selectIds,type)
+    },
+    saveInput(row, index) { //保存
+      let data = JSON.parse(JSON.stringify(this.datas.sel));
+      for (let k in data) {
+        row[k] = data[k] 
+        //将sel里面的value赋值给这一行。ps(for....in..)的妙用，细心的同学发现这里我并没有循环对象row
+      }
+      // 替换为重新获取数据ajax
+      row.isSet = false;
+      this.$set(this.datas.data, index, row);
+    },
+    editInput(row,index,type) { //编辑
+      for (let i of this.datas.data) {
+       if (i.isSet) return this.$message.warning(`请先保存当前编辑${index+1}项`);
+      }
+      this.datas.sel = JSON.parse(JSON.stringify(row));
+      row.isSet = type
+      this.$set(this.datas.data, index, row);
+    },
+    calcelInput(row, index, rows) { //取消
+      row.isSet = false;
+      this.$set(this.datas.data, index, row);
+     // 如果当前行有id则同时接口删除ajax
+    },
+    changeRadio(row, index, type, value){
+      row[type] = value
+      console.log(row,index,type,value)
+      this.$set(this.datas.data, index, row);
+      console.log(this.datas.data)
+    }
+
+  },
+  mounted(){
+    this.searchInfo.month = moment().subtract(1,'month');
+    this.getDataList();
+    this.$store.commit('updateMenu','/reportList')
+  }
+}
+</script>
+
+<style lang="stylus" scoped>
+.addBtn
+  margin-right:16px
+.el-select
+  margin-right:8px
+.el-range-editor.el-input__inner,.el-date-editor.el-input, .el-date-editor.el-input__inner
+  margin-right:8px
+.row-bg.el-row--flex
+  margin-bottom:12px
+.row-bg.addFlodwarp
+  justify-content: space-between;
+
+</style>

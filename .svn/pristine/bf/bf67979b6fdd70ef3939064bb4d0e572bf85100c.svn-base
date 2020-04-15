@@ -1,0 +1,188 @@
+<template>
+  <div class="nav_warp">
+    <el-menu v-if="menuData.length>0"
+      mode="horizontal" 
+      :default-active="menu" 
+      active-text-color="#ffd04b" 
+      unique-opened 
+      router
+      @select="changeMenu">
+      <template v-for="item in menuData">
+        <template v-if="item.subs">
+          <el-submenu :index="item.index" :key="item.index">
+            <template slot="title">
+              <!-- <i :class="'icon iconfont '+item.icon"></i> -->
+              <span slot="title">{{ item.title }}</span>
+            </template>
+            <template v-for="subItem in item.subs">
+              <el-menu-item :index="subItem.index" :key="subItem.index">
+                <!-- <i :class="'icon iconfont '+subItem.icon"></i> -->
+                <span slot="title">{{ subItem.title }}</span>
+              </el-menu-item>
+            </template>
+          </el-submenu>
+        </template>
+        <template v-else>
+          <el-menu-item :index="item.index" :key="item.index">
+            <!-- <i :class="'icon iconfont '+item.icon"></i> -->
+            <span slot="title">{{ item.title }}</span>
+          </el-menu-item>
+        </template>
+      </template>
+    </el-menu>
+    <div v-else-if="searched">抱歉您的角色没有相关权限菜单</div>
+  </div>
+</template>
+
+<script>
+import {getMenuList} from '../request/api.js'
+export default {
+  data() {
+    return {
+      userInfo:'',
+      searched:false,
+      menuFlog:false,
+      menuData:[],
+      menuData: [
+        {
+          icon: 'icondingdanguanli',
+          index: '1',
+          title: '数据报表',
+          subs: [
+            {
+              icon:'icondingdanliebiao',
+              index: '/dataList',
+              title: '录入数据',
+            },{
+              icon:'iconchuangjiandingdan',
+              index: '/reportList',
+              title: '计提报表',
+            }
+          ]
+        },
+        {
+          icon: 'iconshujubaobiao',
+          index: '2',
+          title: '基础数据管理',
+          subs: [
+            {
+              icon:'iconliushui',
+              index: '/channelList',
+              title: '渠道管理',
+            },
+            {
+              icon:'iconliushui',
+              index: '/customerList',
+              title: '客户管理',
+            },
+            {
+              icon:'iconliushui',
+              index: '/activityList',
+              title: '活动管理',
+            },
+            {
+              icon:'iconliushui',
+              index: '/numberList',
+              title: '包号管理',
+            },{
+              icon:'iconliushui',
+              index: '/staffList',
+              title: '员工管理',
+            }
+
+          ]
+        },
+        {
+          icon: 'iconshujubaobiao',
+          index: '3',
+          title: '用户管理',
+          subs: [
+            {
+              icon:'icondingdanliebiao',
+              index: '/userManage',
+              title: '用户列表',
+            },{
+              icon:'iconchuangjiandingdan',
+              index: '/roleManage',
+              title: '角色列表',
+            }
+          ]
+        }
+      ],
+    }
+  },
+  watch: {
+    menuList (status) {//监听的数据，根据不同情况执行不同
+      if (status){
+        console.log('updateMenu!')
+        this.getMenu();
+      }
+    }
+  },
+  computed: {
+    menu(){
+      return this.$store.state.menu
+    },
+    menuList(){
+      return this.$store.state.menuList
+    }
+  },
+  methods:{
+    changeMenu(menu){
+      this.$store.commit('updateMenu',menu)
+    },
+    // 获取菜单
+    getMenu(){
+      getMenuList().then(res=>{
+        if(res.code == 0){
+          this.searched = true;
+          this.menuData = res.data;
+        }
+      }).catch(err => {
+        this.$message({ showClose: true,message: err.message,duration:2000,type: 'error'})
+      });
+    },
+    isInMenu(menudata,menu){
+      var _this = this;
+      menudata.forEach(item => {
+        if(_this.menuFlog){return true;}
+        if(item.index == menu){//查询到对应菜单
+          _this.menuFlog = true;
+          return true;
+        }else{
+          if(item.subs && !_this.menuFlog){
+            _this.isInMenu(item.subs,menu);
+          }
+        }
+      })
+    },
+  },
+  mounted(){
+    this.getMenu();
+    var menudata= this.menuData;
+    var menu = this.$store.state.menu || '';
+    var path = this.$route.fullPath;
+    this.isInMenu(menudata,path)
+    var isInMenu = this.menuFlog || false;
+    menu = (!isInMenu ? (menu ? menu :'/orderList') : path)
+    this.$store.commit('updateMenu',menu)
+  },
+  created(){
+  }
+}
+</script>
+<style lang='stylus' scoped>
+  leftWidth = 1200px
+  .nav_warp
+    flex:1;
+    display:flex
+    overflow:auto
+    justify-content: center;
+    z-index: 999;
+    .el-menu 
+      height:100%
+      background-color:transparent
+      border none
+    .el-menu--collapse
+      width:auto
+</style>
